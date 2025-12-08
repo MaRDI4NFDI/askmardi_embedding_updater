@@ -90,7 +90,6 @@ def update_software_items(db_path: str) -> List[str]:
         list[str]: All QIDs fetched during this run.
     """
     logger = get_run_logger()
-    logger.info("Updating software_index table from Wikibase")
 
     wb_cfg = cfg("mardi_kg")
     sparql_cfg = cfg("sparql")
@@ -102,6 +101,8 @@ def update_software_items(db_path: str) -> List[str]:
     sleep_between = sparql_cfg["sleep_between_queries"]
     max_retries = sparql_cfg["max_retries"]
     timeout = sparql_cfg["timeout"]
+
+    logger.info(f"Updating software_index table from Wikibase (timeout:{timeout})")
 
     conn = get_connection(db_path)
     cursor = conn.cursor()
