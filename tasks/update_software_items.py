@@ -91,14 +91,15 @@ def update_software_items(db_path: str) -> List[str]:
     logger = get_run_logger()
     logger.info("Updating software_index table from Wikibase")
 
-    wb_cfg = cfg("wikibase")
-    wf_cfg = cfg("workflow")
+    wb_cfg = cfg("mardi_kg")
+    sparql_cfg = cfg("sparql")
 
     endpoint = wb_cfg["sparql_endpoint"]
 
-    limit = wf_cfg["sparql_page_size"]
-    sleep_between = wf_cfg["sleep_between_queries"]
-    max_retries = wf_cfg["max_retries"]
+    max_results = sparql_cfg["sparql_max_results"]
+    per_query_limit = sparql_cfg.get("sparql_max_results_per_query")
+    sleep_between = sparql_cfg["sleep_between_queries"]
+    max_retries = sparql_cfg["max_retries"]
 
     conn = get_connection(db_path)
     cursor = conn.cursor()
@@ -109,14 +110,32 @@ def update_software_items(db_path: str) -> List[str]:
 
     offset = existing_rows if existing_rows > 0 else 0
 
-    total_fetched = existing_rows
+    total_fetched = 0
     all_qids: List[str] = []
     timestamp = datetime.now(timezone.utc).isoformat()
 
     while True:
-        logger.info(f"Querying SPARQL OFFSET={offset} LIMIT={limit}")
+        if max_results is not None and total_fetched >= max_results:
+            logger.info(
+                "Reached sparql_max_results cap; stopping SPARQL pagination."
+            )
+            break
 
-        query = build_query(offset=offset, limit=limit)
+        remaining = (
+            max_results - total_fetched if max_results is not None else None
+        )
+
+        limit_for_query = per_query_limit
+        if remaining is not None:
+            limit_for_query = (
+                remaining
+                if per_query_limit is None
+                else min(per_query_limit, remaining)
+            )
+
+        logger.info(f"Querying SPARQL OFFSET={offset} LIMIT={limit_for_query}")
+
+        query = build_query(offset=offset, limit=limit_for_query)
         batch = run_query(endpoint, query, logger, max_retries)
 
         if not batch:
@@ -135,9 +154,11 @@ def update_software_items(db_path: str) -> List[str]:
 
         all_qids.extend(batch)
         total_fetched += len(batch)
-        offset += limit if limit is not None else len(batch)
+        offset += len(batch)
 
-        logger.info(f"Fetched {len(batch):,} QIDs — Total: {total_fetched:,}")
+        logger.info(
+            f"Fetched {len(batch):,} QIDs — Total this run: {total_fetched:,}"
+        )
 
         time.sleep(sleep_between)
 

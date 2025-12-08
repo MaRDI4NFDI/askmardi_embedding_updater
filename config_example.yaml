@@ -8,8 +8,8 @@ lakefs:
   user: 'MYUSER'
   password: 'MYPASSWORD'
 
-# MaRDI SPARQL endpoint
-wikibase:
+# MaRDI KG settings
+mardi_kg:
   sparql_endpoint: "https://query.portal.mardi4nfdi.de/sparql"
   mardi_software_profile_qid: "Q5976450"             # Instance of software in Wikibase
   mardi_profile_type_pid: "P1460"
@@ -33,8 +33,9 @@ embedding:
   batch_size: 4
   device: "cpu"                    # "cuda" if GPU available
 
-# Workflow settings
-workflow:
+# SPARQL workflow settings
+sparql:
   sleep_between_queries: 10
-  sparql_page_size: 5000
+  sparql_max_results: 10
+  sparql_max_results_per_query: 5
   max_retries: 5

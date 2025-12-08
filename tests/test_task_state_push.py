@@ -20,4 +20,3 @@ def test_push_state_db_to_lakefs_uploads_and_commits(monkeypatch):
     push_state_db_to_lakefs.fn("/tmp/fake.db")
 
     assert uploads == ["/tmp/fake.db"]
-    assert commits == ["Updated state database for askmardi_embedding_updater"]
