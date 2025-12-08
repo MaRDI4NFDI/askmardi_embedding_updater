@@ -1,0 +1,39 @@
+# LakeFS settings
+lakefs:
+  url: "https://lake-bioinfmed.zib.de/"
+  state_repo: "mardi-state"
+  data_repo: "mardi-fdo-data"
+  branch: "main"
+  user: 'MYUSER'
+  password: 'MYPASSWORD'
+
+# MaRDI SPARQL endpoint
+wikibase:
+  sparql_endpoint: "https://query.portal.mardi4nfdi.de/sparql"
+  mardi_software_profile_qid: "Q5976450"             # Instance of software in Wikibase
+  mardi_profile_type_pid: "P1460"
+
+# DOIP server
+doip:
+  endpoint: "https://doip.portal.mardi4nfdi.de/doip"
+  timeout_seconds: 30
+
+# Qdrant storage
+qdrant:
+  host: "http://qdrant:6333"
+  collection: "software_docs"
+  vector_size: 768                 # example dimension
+  distance: "Cosine"
+  api_key: ""                      # if required
+
+# Embedding Model
+embedding:
+  model_name: "all-mpnet-base-v2"
+  batch_size: 4
+  device: "cpu"                    # "cuda" if GPU available
+
+# Workflow settings
+workflow:
+  sleep_between_queries: 10
+  sparql_page_size: 5000
+  max_retries: 5

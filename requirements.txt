@@ -1,0 +1,12 @@
+prefect>=3.0
+pandas>=2.0
+requests>=2.31.0
+sqlite-utils>=3.35
+python-dotenv>=1.0.1
+qdrant-client
+sentence-transformers
+pypdf
+pytest
+lakefs-sdk
+rdflib
+lakefs_client
