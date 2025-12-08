@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Iterable, List, Optional, Set
 
 from prefect import task, get_run_logger
@@ -76,6 +76,26 @@ def update_lakefs_file_index(db_path: str = str(STATE_DB_PATH)) -> None:
     logger = get_run_logger()
     lakefs_cfg = cfg("lakefs")
 
+    conn = get_connection(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT MAX(updated_at) FROM component_index"
+    )
+    last_updated_row = cursor.fetchone()
+    last_updated = (
+        datetime.fromisoformat(last_updated_row[0])
+        if last_updated_row and last_updated_row[0]
+        else None
+    )
+    if last_updated and datetime.now(timezone.utc) - last_updated < timedelta(hours=1):
+        logger.info(
+            f"component_index already refreshed at {last_updated.isoformat()} — "
+            "skipping rescan (less than 1 hour old)."
+        )
+        conn.close()
+        return
+
     s3_client = get_lakefs_s3_client()
     repo = lakefs_cfg["data_repo"]
     branch = lakefs_cfg["branch"]
@@ -89,8 +109,6 @@ def update_lakefs_file_index(db_path: str = str(STATE_DB_PATH)) -> None:
         logger.info("No matching files found. Nothing to index.")
         return
 
-    conn = get_connection(db_path)
-    cursor = conn.cursor()
     timestamp = datetime.now(timezone.utc).isoformat()
 
     rows_to_write: List[tuple] = []

@@ -145,14 +145,14 @@ def upload_state_db(local_path: str = str(STATE_DB_PATH)) -> bool:
     logger.info(f"[upload_state_db] Checking for DB changes at {repo}:{branch}/{path_in_repo}")
 
     local_checksum = _file_md5(local_path)
-    logger.info(f"[upload_state_db] Local checksum: {local_checksum}")
+    logger.debug(f"[upload_state_db] Local checksum: {local_checksum}")
 
     # Check remote checksum
     remote_checksum = None
     try:
         meta = lakefs.objects_api.stat_object(repo, branch, path_in_repo)
         remote_checksum = meta.checksum
-        logger.info(f"[upload_state_db] Remote checksum: {remote_checksum}")
+        logger.debug(f"[upload_state_db] Remote checksum: {remote_checksum}")
     except ApiException:
         logger.info("[upload_state_db] No remote object found (upload required)")
 
