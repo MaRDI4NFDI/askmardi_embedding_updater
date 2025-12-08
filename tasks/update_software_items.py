@@ -39,7 +39,7 @@ def build_query(offset: int, limit: Optional[int]) -> str:
     """
 
 
-def run_query(endpoint: str, query: str, logger, max_retries: int) -> List[str]:
+def run_query(endpoint: str, query: str, logger, max_retries: int, timeout: int=120) -> List[str]:
     """
     Execute a SPARQL query with retries and parse QIDs.
 
@@ -48,6 +48,7 @@ def run_query(endpoint: str, query: str, logger, max_retries: int) -> List[str]:
         query: SPARQL query text to execute.
         logger: Prefect logger used for status updates.
         max_retries: Maximum retry attempts on failure.
+        timeout: Maximum time for the query.
 
     Returns:
         list[str]: Extracted QIDs from query results.
@@ -61,7 +62,7 @@ def run_query(endpoint: str, query: str, logger, max_retries: int) -> List[str]:
             resp = requests.get(
                 endpoint,
                 params={"query": query, "format": "json"},
-                timeout=120,
+                timeout=timeout,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -100,6 +101,7 @@ def update_software_items(db_path: str) -> List[str]:
     per_query_limit = sparql_cfg.get("sparql_max_results_per_query")
     sleep_between = sparql_cfg["sleep_between_queries"]
     max_retries = sparql_cfg["max_retries"]
+    timeout = sparql_cfg["timeout"]
 
     conn = get_connection(db_path)
     cursor = conn.cursor()
@@ -136,7 +138,7 @@ def update_software_items(db_path: str) -> List[str]:
         logger.info(f"Querying SPARQL OFFSET={offset} LIMIT={limit_for_query}")
 
         query = build_query(offset=offset, limit=limit_for_query)
-        batch = run_query(endpoint, query, logger, max_retries)
+        batch = run_query(endpoint, query, logger, max_retries, timeout)
 
         if not batch:
             logger.info("Wikibase returned no more software results — complete")

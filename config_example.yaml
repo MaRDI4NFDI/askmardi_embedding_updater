@@ -39,3 +39,4 @@ sparql:
   sparql_max_results: 10
   sparql_max_results_per_query: 5
   max_retries: 5
+  timeout: 600
