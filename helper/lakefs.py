@@ -47,6 +47,8 @@ def download_state_db(local_path: str):
     Returns:
         bool: True when the DB exists and is downloaded; False otherwise.
     """
+    logger = get_run_logger()
+
     lakefs = get_lakefs_client()
     lakefs_cfg = cfg("lakefs")
 
@@ -55,18 +57,32 @@ def download_state_db(local_path: str):
     prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
     path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
 
+    logger.info(f"[download_state_db] Downloading state DB from {repo}:{branch}/{path_in_repo}")
+
+    try:
+        lakefs.objects_api.stat_object(repo, branch, path_in_repo)
+    except Exception:
+        logger.info(f"[download_state_db] No existing state DB at LakeFS (starting fresh).")
+        return False
+
     try:
         Path(local_path).parent.mkdir(parents=True, exist_ok=True)
         obj = lakefs.objects_api.get_object(
             repository=repo,
             ref=branch,
             path=path_in_repo,
+            _preload_content=False,
         )
         with open(local_path, "wb") as fh:
-            fh.write(obj.data)
+            fh.write(obj.read())
+
+        logger.info(f"[download_state_db] Successfully downloaded to {local_path}")
         return True
-    except Exception:
+
+    except Exception as e:
+        logger.error(f"[download_state_db] Failed to download state DB: {e}")
         return False
+
 
 
 def upload_state_db(local_path: str):
