@@ -22,11 +22,12 @@ def software_doc_embedding_sync(
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    init_db_task(db_path=db_path)
-    pull_state_db_from_lakefs(db_path=db_path)
-    qids = update_software_items(db_path=db_path)
-    update_lakefs_file_index(qids=qids, db_path=db_path)
-    update_embeddings(db_path=db_path)
+    pulled = pull_state_db_from_lakefs(db_path=db_path)
+    if not pulled:
+        init_db_task(db_path=db_path)
+    #qids = update_software_items(db_path=db_path)
+    #update_lakefs_file_index(qids=qids, db_path=db_path)
+    #update_embeddings(db_path=db_path)
     push_state_db_to_lakefs(db_path=db_path)
 
 

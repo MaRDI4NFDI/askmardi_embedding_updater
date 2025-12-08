@@ -9,4 +9,4 @@ pypdf
 pytest
 lakefs-sdk
 rdflib
-lakefs_client
+lakefs_client==1.44.0

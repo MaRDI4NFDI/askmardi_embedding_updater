@@ -3,8 +3,8 @@ from typing import List, Tuple, Optional
 
 from lakefs_client import Configuration
 from lakefs_client.client import LakeFSClient
-
 from helper.config import cfg
+from helper.constants import STATE_DB_FILENAME
 
 
 def get_lakefs_client() -> LakeFSClient:
@@ -49,7 +49,8 @@ def download_state_db(local_path: str):
 
     repo = lakefs_cfg["state_repo"]
     branch = lakefs_cfg["branch"]
-    path_in_repo = "software_docs_state.db"
+    prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
+    path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
 
     try:
         Path(local_path).parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +78,8 @@ def upload_state_db(local_path: str):
 
     repo = lakefs_cfg["state_repo"]
     branch = lakefs_cfg["branch"]
-    path_in_repo = "software_docs_state.db"
+    prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
+    path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
 
     with open(local_path, "rb") as fh:
         lakefs.objects_api.upload_object(

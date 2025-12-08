@@ -16,7 +16,7 @@ def push_state_db_to_lakefs(db_path: str) -> None:
 
     try:
         upload_state_db(local_path=db_path)
-        commit_state_db(message="Update state DB for software docs workflow")
+        commit_state_db(message="Updated state database for askmardi_embedding_updater")
         logger.info("State DB successfully uploaded and committed to LakeFS.")
     except Exception as e:
         logger.error(f"Failed to save state DB to LakeFS: {e}")

@@ -13,6 +13,7 @@ def test_pull_state_db_from_lakefs_invokes_download(monkeypatch):
     monkeypatch.setattr("tasks.state_pull.download_state_db", fake_download_state_db)
     monkeypatch.setattr("tasks.state_pull.get_run_logger", lambda: logging.getLogger("test_logger"))
 
-    pull_state_db_from_lakefs.fn("/tmp/fake.db")
+    result = pull_state_db_from_lakefs.fn("/tmp/fake.db")
 
     assert calls == ["/tmp/fake.db"]
+    assert result is True
