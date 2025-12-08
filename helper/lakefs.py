@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 from datetime import datetime
 
+import boto3
+from botocore.config import Config
 from lakefs_client import Configuration, ApiException
 from lakefs_client.client import LakeFSClient
 from prefect import get_run_logger
@@ -33,6 +35,26 @@ def get_lakefs_client() -> LakeFSClient:
     config.password = lakefs_cfg["password"]
 
     return LakeFSClient(configuration=config)
+
+
+def get_lakefs_s3_client():
+    """
+    Create a boto3 client for the LakeFS S3 gateway.
+
+    Returns:
+        boto3.client: Configured S3-compatible client for LakeFS.
+    """
+    lakefs_cfg = cfg("lakefs")
+    endpoint = f"{lakefs_cfg['url'].rstrip('/')}"
+
+    return boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=lakefs_cfg["user"],
+        aws_secret_access_key=lakefs_cfg["password"],
+        region_name="us-east-1",
+        config=Config(s3={"addressing_style": "path"}),
+    )
 
 
 # ============================================================

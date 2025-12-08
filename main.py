@@ -22,7 +22,7 @@ def software_doc_embedding_sync():
     pulled = pull_state_db_from_lakefs()
     if not pulled:
         init_db_task()
-    update_software_items_from_mardi()
+    #update_software_items_from_mardi()
     update_lakefs_file_index()
     #update_embeddings()
     push_state_db_to_lakefs()
