@@ -1,6 +1,7 @@
 import hashlib
 from pathlib import Path
 from typing import List, Tuple, Optional
+from datetime import datetime
 
 from lakefs_client import Configuration, ApiException
 from lakefs_client.client import LakeFSClient
@@ -41,6 +42,7 @@ def get_lakefs_client() -> LakeFSClient:
 def download_state_db(local_path: str):
     """
     Download the state SQLite DB from LakeFS if present.
+    If a local file already exists, it is renamed to `{name}.backup_<timestamp>`.
 
     Args:
         local_path: Destination path for the downloaded DB file.
@@ -67,17 +69,25 @@ def download_state_db(local_path: str):
         return False
 
     try:
-        Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+        local_path_obj = Path(local_path)
+        local_path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        if local_path_obj.exists():
+            timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+            backup_path = local_path_obj.with_name(f"{local_path_obj.name}.backup_{timestamp}")
+            local_path_obj.rename(backup_path)
+            logger.info(f"[download_state_db] Existing local DB backed up to {backup_path}")
+
         obj = lakefs.objects_api.get_object(
             repository=repo,
             ref=branch,
             path=path_in_repo,
             _preload_content=False,
         )
-        with open(local_path, "wb") as fh:
+        with open(local_path_obj, "wb") as fh:
             fh.write(obj.read())
 
-        logger.info(f"[download_state_db] Successfully downloaded to {local_path}")
+        logger.info(f"[download_state_db] Successfully downloaded to {local_path_obj}")
         return True
 
     except Exception as e:
