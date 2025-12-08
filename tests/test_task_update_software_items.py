@@ -28,12 +28,13 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
                 "sparql_max_results_per_query": 2,
                 "sleep_between_queries": 0,
                 "max_retries": 1,
+                "timeout": 120,
             }
         raise KeyError(section)
 
     next_idx = {"start": 0}
 
-    def fake_run_query(endpoint: str, query: str, logger, max_retries: int) -> List[str]:
+    def fake_run_query(endpoint: str, query: str, logger, max_retries: int, timeout: int) -> List[str]:
         returned_queries.append(query)
 
         limit_val = None
