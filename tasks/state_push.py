@@ -1,11 +1,12 @@
 from lakefs_client import ApiException
 from prefect import task, get_run_logger
 
+from helper.constants import STATE_DB_PATH
 from helper.lakefs import upload_state_db, commit_state_db
 
 
 @task(name="push_state_db_to_lakefs")
-def push_state_db_to_lakefs(db_path: str) -> None:
+def push_state_db_to_lakefs(db_path: str = str(STATE_DB_PATH)) -> None:
     """
     Upload the local SQLite DB to LakeFS and create a commit when changes occurred.
 

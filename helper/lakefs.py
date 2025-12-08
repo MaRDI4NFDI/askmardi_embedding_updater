@@ -8,7 +8,7 @@ from lakefs_client.client import LakeFSClient
 from prefect import get_run_logger
 
 from helper.config import cfg
-from helper.constants import STATE_DB_FILENAME
+from helper.constants import STATE_DB_FILENAME, STATE_DB_PATH
 from helper.sharding import shard_qid
 
 
@@ -39,7 +39,7 @@ def get_lakefs_client() -> LakeFSClient:
 # Persistence of State DB
 # ============================================================
 
-def download_state_db(local_path: str):
+def download_state_db(local_path: str = str(STATE_DB_PATH)):
     """
     Download the state SQLite DB from LakeFS if present.
     If a local file already exists, it is renamed to `{name}.backup_<timestamp>`.
@@ -104,7 +104,7 @@ def _file_md5(path: str) -> str:
     return md5.hexdigest()
 
 
-def upload_state_db(local_path: str) -> bool:
+def upload_state_db(local_path: str = str(STATE_DB_PATH)) -> bool:
     """
     Upload the local state SQLite DB to LakeFS only if changed.
 

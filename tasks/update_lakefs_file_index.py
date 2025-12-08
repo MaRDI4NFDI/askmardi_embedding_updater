@@ -3,12 +3,15 @@ from typing import List
 
 from prefect import task, get_run_logger
 
+from helper.constants import STATE_DB_PATH
 from helper.lakefs import list_components
 from tasks.init_db_task import get_connection
 
 
 @task(name="update_lakefs_file_index")
-def update_lakefs_file_index(qids: List[str], db_path: str) -> None:
+def update_lakefs_file_index(
+    qids: List[str], db_path: str = str(STATE_DB_PATH)
+) -> None:
     """
     Refresh the component_index table with LakeFS component listings.
 

@@ -9,6 +9,7 @@ from tasks.init_db_task import get_connection
 from helper.config import cfg
 from helper.constants import SOFTWARE_PROFILE_QID
 from helper.constants import MARDI_PROFILE_TYPE_PID
+from helper.constants import STATE_DB_PATH
 
 
 def build_query(offset: int, limit: Optional[int]) -> str:
@@ -79,7 +80,9 @@ def run_query(endpoint: str, query: str, logger, max_retries: int, timeout: int=
 
 
 @task(name="update_software_items")
-def update_software_items(db_path: str) -> List[str]:
+def update_software_items_from_mardi(
+    db_path: str = str(STATE_DB_PATH),
+) -> List[str]:
     """
     Refresh the software_index table with QIDs retrieved from Wikibase.
 

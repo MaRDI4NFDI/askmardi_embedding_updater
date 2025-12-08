@@ -2,11 +2,12 @@ from datetime import datetime, timezone
 
 from prefect import task, get_run_logger
 
+from helper.constants import STATE_DB_PATH
 from tasks.init_db_task import get_connection
 
 
 @task(name="update_embeddings")
-def update_embeddings(db_path: str) -> int:
+def update_embeddings(db_path: str = str(STATE_DB_PATH)) -> int:
     """
     Synchronize embeddings_index rows with the current component_index entries.
 

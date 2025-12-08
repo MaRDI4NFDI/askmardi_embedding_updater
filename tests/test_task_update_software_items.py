@@ -9,7 +9,7 @@ import pytest
 from helper.config import cfg
 from helper.constants import SOFTWARE_PROFILE_QID, MARDI_PROFILE_TYPE_PID
 from tasks.init_db_task import _init_db, get_connection
-from tasks.update_software_items import build_query, run_query, update_software_items
+from tasks.update_software_items import build_query, run_query, update_software_items_from_mardi
 
 
 def test_update_software_items_with_mocks(tmp_path, monkeypatch):
@@ -61,7 +61,7 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
     monkeypatch.setattr("tasks.update_software_items.time.sleep", lambda _: None)
     monkeypatch.setattr("tasks.update_software_items.get_run_logger", lambda: logging.getLogger("test_logger"))
 
-    returned_qids = update_software_items.fn(str(db_path))
+    returned_qids = update_software_items_from_mardi.fn(str(db_path))
 
     assert returned_qids == ["Q1", "Q2", "Q3"]
     # Ensure the final query used the remaining total limit (1) instead of the per-query ceiling (2)

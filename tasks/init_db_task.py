@@ -2,9 +2,11 @@ from prefect import task, get_run_logger
 import sqlite3
 from pathlib import Path
 
+from helper.constants import STATE_DB_PATH
+
 
 @task(name="init_database")
-def init_db_task(db_path: str) -> None:
+def init_db_task(db_path: str = str(STATE_DB_PATH)) -> None:
     """
     Ensure the SQLite database exists and required tables are present.
 
@@ -46,7 +48,7 @@ SCHEMA_QUERIES = [
 ]
 
 
-def _init_db(db_path: str) -> None:
+def _init_db(db_path: str = str(STATE_DB_PATH)) -> None:
     """
     Create the SQLite database directory and apply schema migrations.
 
@@ -63,7 +65,7 @@ def _init_db(db_path: str) -> None:
         conn.close()
 
 
-def get_connection(db_path: str) -> sqlite3.Connection:
+def get_connection(db_path: str = str(STATE_DB_PATH)) -> sqlite3.Connection:
     """
     Open a SQLite connection to the workflow state database.
 
