@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -84,13 +85,21 @@ def download_state_db(local_path: str):
         return False
 
 
+def _file_md5(path: str) -> str:
+    """Compute MD5 checksum of a file."""
+    md5 = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            md5.update(chunk)
+    return md5.hexdigest()
 
-def upload_state_db(local_path: str):
+
+def upload_state_db(local_path: str) -> bool:
     """
-    Upload the local state SQLite DB to LakeFS.
+    Upload the local state SQLite DB to LakeFS only if changed.
 
-    Args:
-        local_path: Path to the local DB file to upload.
+    Returns:
+        bool: True if upload succeeded or up-to-date; False otherwise.
     """
     logger = get_run_logger()
     lakefs = get_lakefs_client()
@@ -101,7 +110,26 @@ def upload_state_db(local_path: str):
     prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
     path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
 
-    logger.info(f"[upload_state_db] Uploading state DB to {repo}:{branch}/{path_in_repo}")
+    logger.info(f"[upload_state_db] Checking for DB changes at {repo}:{branch}/{path_in_repo}")
+
+    local_checksum = _file_md5(local_path)
+    logger.info(f"[upload_state_db] Local checksum: {local_checksum}")
+
+    # Check remote checksum
+    remote_checksum = None
+    try:
+        meta = lakefs.objects_api.stat_object(repo, branch, path_in_repo)
+        remote_checksum = meta.checksum
+        logger.info(f"[upload_state_db] Remote checksum: {remote_checksum}")
+    except ApiException:
+        logger.info("[upload_state_db] No remote object found (upload required)")
+
+    # If unchanged, skip upload
+    if remote_checksum == local_checksum:
+        logger.info("[upload_state_db] No changes detected — skipping upload")
+        return True
+
+    logger.info(f"[upload_state_db] Uploading DB to LakeFS: {repo}:{branch}/{path_in_repo}")
 
     try:
         with open(local_path, "rb") as fh:
@@ -111,9 +139,22 @@ def upload_state_db(local_path: str):
                 path=path_in_repo,
                 content=fh,
             )
+        logger.info("[upload_state_db] Upload finished successfully")
+        return True
+
     except ApiException as e:
-        logger.error(f"LakeFS API error: {e.status} {e.reason}")
-        logger.error(e.body)
+        body = getattr(e, "body", "")
+        if "no changes" in str(body).lower():
+            logger.info("[upload_state_db] No effective changes (already up-to-date)")
+            return True
+
+        logger.error(f"[upload_state_db] LakeFS error: {e.status} {e.reason}")
+        logger.debug(body)
+        return False
+
+    except Exception as e:
+        logger.error(f"[upload_state_db] Unexpected error: {e}")
+        return False
 
 def commit_state_db(message: str):
     """
