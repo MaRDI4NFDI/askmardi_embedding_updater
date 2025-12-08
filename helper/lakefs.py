@@ -1,10 +1,13 @@
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-from lakefs_client import Configuration
+from lakefs_client import Configuration, ApiException
 from lakefs_client.client import LakeFSClient
+from prefect import get_run_logger
+
 from helper.config import cfg
 from helper.constants import STATE_DB_FILENAME
+from helper.sharding import shard_qid
 
 
 def get_lakefs_client() -> LakeFSClient:
@@ -73,6 +76,7 @@ def upload_state_db(local_path: str):
     Args:
         local_path: Path to the local DB file to upload.
     """
+    logger = get_run_logger()
     lakefs = get_lakefs_client()
     lakefs_cfg = cfg("lakefs")
 
@@ -81,14 +85,19 @@ def upload_state_db(local_path: str):
     prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
     path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
 
-    with open(local_path, "rb") as fh:
-        lakefs.objects_api.upload_object(
-            repository=repo,
-            branch=branch,
-            path=path_in_repo,
-            content=fh,
-        )
+    logger.info(f"[upload_state_db] Uploading state DB to {repo}:{branch}/{path_in_repo}")
 
+    try:
+        with open(local_path, "rb") as fh:
+            lakefs.objects_api.upload_object(
+                repository=repo,
+                branch=branch,
+                path=path_in_repo,
+                content=fh,
+            )
+    except ApiException as e:
+        logger.error(f"LakeFS API error: {e.status} {e.reason}")
+        logger.error(e.body)
 
 def commit_state_db(message: str):
     """

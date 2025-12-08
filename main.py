@@ -28,7 +28,7 @@ def software_doc_embedding_sync(
     #qids = update_software_items(db_path=db_path)
     #update_lakefs_file_index(qids=qids, db_path=db_path)
     #update_embeddings(db_path=db_path)
-    push_state_db_to_lakefs(db_path=db_path)
+    #push_state_db_to_lakefs(db_path=db_path)
 
 
 if __name__ == "__main__":

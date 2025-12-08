@@ -1,7 +1,8 @@
 # LakeFS settings
 lakefs:
   url: "https://lake-bioinfmed.zib.de/"
-  state_repo: "mardi-state"
+  state_repo: "mardi-workflows-files"
+  state_repo_directory: "askmardi_embedding_update"
   data_repo: "mardi-fdo-data"
   branch: "main"
   user: 'MYUSER'
