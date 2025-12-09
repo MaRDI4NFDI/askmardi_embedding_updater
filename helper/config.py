@@ -2,12 +2,14 @@ import yaml
 from pathlib import Path
 from typing import Dict
 
+from prefect import get_run_logger
+
 CONFIG_PATH = Path("config.yaml")
 
 _cache = None  # keep config in memory
 
 
-def load_config():
+def load_config(config_path: Path = CONFIG_PATH):
     """
     Load and cache configuration from `config.yaml`.
 
@@ -21,10 +23,10 @@ def load_config():
     if _cache is not None:
         return _cache
 
-    if not CONFIG_PATH.exists():
-        raise FileNotFoundError(f"Config file missing: {CONFIG_PATH}")
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file missing: {config_path}")
 
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         _cache = yaml.safe_load(f)
         _populate_constants(_cache)
         return _cache
@@ -66,12 +68,13 @@ def check_for_config() -> bool:
     return False
 
 
-def cfg(section: str) -> dict:
+def cfg(section: str, config_path: Path = CONFIG_PATH) -> dict:
     """
     Retrieve a configuration section by name.
 
     Args:
         section: Section key to fetch from the loaded config.
+        config_path: Optional path to override default config location.
 
     Returns:
         dict: Subsection of configuration values.
@@ -79,7 +82,10 @@ def cfg(section: str) -> dict:
     Raises:
         KeyError: If the section is not present in the config file.
     """
-    config = load_config()
+    logger = get_run_logger()
+    logger.debug(f"Checking for config file at: {Path}")
+
+    config = load_config(config_path)
     if section not in config:
         raise KeyError(f"Missing '{section}' section in config.yaml")
     return config[section]
