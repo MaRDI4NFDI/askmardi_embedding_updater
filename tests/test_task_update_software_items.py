@@ -76,7 +76,10 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
 
 
 @pytest.mark.integration
-def test_run_query_against_real_endpoint():
+def test_run_query_against_real_endpoint(monkeypatch):
+    monkeypatch.setattr("helper.lakefs.get_run_logger", lambda: logging.getLogger("test"))
+    monkeypatch.setattr("helper.config.get_run_logger", lambda: logging.getLogger("test"))
+
     wb_cfg = cfg("mardi_kg")
     wf_cfg = cfg("sparql")
 
