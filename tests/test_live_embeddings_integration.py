@@ -147,7 +147,7 @@ def test_live_rag_chain_with_qdrant():
         | StrOutputParser()
     )
 
-    result = rag_chain.invoke("What could be the mathematical concept of this?")
+    result = rag_chain.invoke("What is CRAN?")
     print(f"[Live RAG] Result: {result}")
     assert isinstance(result, str)
     assert len(result) > 0
