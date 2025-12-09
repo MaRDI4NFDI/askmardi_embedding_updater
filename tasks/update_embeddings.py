@@ -105,7 +105,11 @@ def perform_pdf_indexing(
         try:
             documents = embedder.load_pdf_file(tmp_path)
             for doc in documents:
-                doc.metadata.update({"qid": qid, "component": component})
+                doc.metadata.update({
+                    "qid": qid,
+                    "component": component,
+                    "source": "CRAN"
+                })
 
             chunks = embedder.split_and_filter(documents)
             for chunk in chunks:
