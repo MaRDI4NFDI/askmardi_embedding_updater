@@ -220,8 +220,7 @@ def list_components(qid: str) -> List[Tuple[str, Optional[str]]]:
         qid: Wikibase QID whose components should be listed.
 
     Returns:
-        list[tuple[str, Optional[str]]]: Pairs of component name and checksum
-            (checksum currently placeholder None).
+        list[tuple[str, Optional[str]]]: Pairs of component name and placeholder checksum.
     """
     lakefs = get_lakefs_client()
     lakefs_cfg = cfg("lakefs")

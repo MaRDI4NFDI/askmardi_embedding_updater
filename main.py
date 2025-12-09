@@ -25,7 +25,7 @@ def start_update_embedding_workflow():
         init_db_task()
     update_software_item_index_from_mardi()
     update_file_index_from_lakefs()
-    update_embeddings()
+    #update_embeddings()
     push_state_db_to_lakefs()
 
 

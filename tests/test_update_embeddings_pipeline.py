@@ -65,10 +65,10 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     )
     conn.executemany(
         """
-        INSERT INTO component_index (qid, component, checksum, updated_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO component_index (qid, component, updated_at)
+        VALUES (?, ?, ?)
         """,
-        [("Q1", "path/to/file.pdf", "abc", datetime.now(timezone.utc).isoformat())],
+        [("Q1", "path/to/file.pdf", datetime.now(timezone.utc).isoformat())],
     )
     conn.commit()
     conn.close()
@@ -82,15 +82,15 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     monkeypatch.setattr("tasks.update_embeddings.get_run_logger", lambda: type("L", (), {"info": lambda *a, **k: None, "debug": lambda *a, **k: None, "warning": lambda *a, **k: None})())
 
     processed = perform_pdf_indexing(
-        components=[("Q1", "path/to/file.pdf", "abc")], db_path=str(temp_db)
+        components=[("Q1", "path/to/file.pdf")], db_path=str(temp_db)
     )
 
     conn = sqlite3.connect(str(temp_db))
-    rows = conn.execute("SELECT qid, component, checksum FROM embeddings_index").fetchall()
+    rows = conn.execute("SELECT qid, component FROM embeddings_index").fetchall()
     conn.close()
 
     assert processed == 1
-    assert rows == [("Q1", "path/to/file.pdf", "abc")]
+    assert rows == [("Q1", "path/to/file.pdf")]
     assert fake_qdrant.uploaded, "Vectors should be uploaded to Qdrant"
 
 
@@ -105,12 +105,12 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
     )
     conn.executemany(
         """
-        INSERT INTO component_index (qid, component, checksum, updated_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO component_index (qid, component, updated_at)
+        VALUES (?, ?, ?)
         """,
         [
-            ("Q1", "file1.pdf", "abc", "2024-01-01T00:00:00Z"),
-            ("Q2", "file2.pdf", "def", "2024-01-01T00:00:00Z"),
+            ("Q1", "file1.pdf", "2024-01-01T00:00:00Z"),
+            ("Q2", "file2.pdf", "2024-01-01T00:00:00Z"),
         ],
     )
     conn.commit()

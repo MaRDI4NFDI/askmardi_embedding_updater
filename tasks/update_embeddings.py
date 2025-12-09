@@ -1,7 +1,7 @@
 import os
 import tempfile
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from prefect import task, get_run_logger
 
@@ -48,13 +48,13 @@ def get_software_items_with_pdf_component(
 
 
 def perform_pdf_indexing(
-    components: List[Tuple[str, str, Optional[str]]], db_path: str
+    components: List[Tuple[str, str]], db_path: str
 ) -> int:
     """
     Build embeddings for component PDFs and push them to Qdrant.
 
     Args:
-        components: Iterable of (qid, component, checksum) rows from the DB.
+        components: Iterable of (qid, component) rows from the DB.
         db_path: Path to the workflow's SQLite state database.
     """
     logger = get_run_logger()
@@ -76,7 +76,12 @@ def perform_pdf_indexing(
     qdrant_collection = qdrant_cfg.get("collection", "software_docs")
     qdrant_distance = qdrant_cfg.get("distance", "COSINE")
     qdrant_api_key = qdrant_cfg.get("api_key")
+    qdrant_host_cfg = qdrant_cfg.get("host")
     qdrant_url = None
+    qdrant_host = qdrant_host_cfg
+    if qdrant_host_cfg and str(qdrant_host_cfg).startswith("http"):
+        qdrant_url = qdrant_host_cfg.rstrip("/")
+        qdrant_host = None
 
     qdrant_kwargs = {
         "host": qdrant_host,
@@ -90,13 +95,7 @@ def perform_pdf_indexing(
     qdrant_manager.ensure_collection(vector_size=embedder.embedding_dimension)
 
     processed = 0
-    max_to_process = 2
-
-    for qid, component, checksum in components:
-
-        # Take care of maximum loop iterations
-        if processed >= max_to_process:
-            break
+    for qid, component in components:
 
         cursor.execute(
             "SELECT 1 FROM embeddings_index WHERE qid = ? LIMIT 1",
@@ -120,11 +119,11 @@ def perform_pdf_indexing(
         try:
             documents = embedder.load_pdf_file(tmp_path)
             for doc in documents:
-                doc.metadata.update({"qid": qid, "component": component, "checksum": checksum})
+                doc.metadata.update({"qid": qid, "component": component})
 
             chunks = embedder.split_and_filter(documents)
             for chunk in chunks:
-                chunk.metadata.update({"qid": qid, "component": component, "checksum": checksum})
+                chunk.metadata.update({"qid": qid, "component": component})
 
             if not chunks:
                 logger.warning(f"No valid chunks produced for {qid} ({component})")
@@ -140,10 +139,10 @@ def perform_pdf_indexing(
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO embeddings_index
-                    (qid, component, checksum, updated_at)
-                VALUES (?, ?, ?, ?)
+                    (qid, component, updated_at)
+                VALUES (?, ?, ?)
                 """,
-                (qid, component, checksum, timestamp),
+                (qid, component, timestamp),
             )
             conn.commit()
             processed += 1
@@ -188,7 +187,7 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH)) -> int:
     # a matching entry in the component_index (=files in lakeFS).
     cursor.execute(
         """
-        SELECT si.qid, ci.component, ci.checksum
+        SELECT si.qid, ci.component
         FROM software_index si
         JOIN component_index ci ON ci.qid = si.qid
         """
@@ -200,22 +199,10 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH)) -> int:
         conn.close()
         logger.info("No components to process; embeddings_index unchanged.")
         return 0
-    
+
     conn.close()
     processed = perform_pdf_indexing(components=components, db_path=db_path)
 
-
-#    timestamp = datetime.now(timezone.utc).isoformat()
-#    cursor.executemany(
-#        """
-#        INSERT OR REPLACE INTO embeddings_index
-#            (qid, component, checksum, updated_at)
-#        VALUES (?, ?, ?, ?)
-#        """,
-#        [(qid, component, checksum, timestamp) for qid, component, checksum in components],
-#    )
-#    conn.commit()
-#    conn.close()
 
     logger.info("Embeddings index update complete")
 

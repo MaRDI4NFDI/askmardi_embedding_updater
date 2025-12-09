@@ -22,25 +22,26 @@ def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
     )
     conn.executemany(
         """
-        INSERT INTO component_index (qid, component, checksum, updated_at)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO component_index (qid, component, updated_at)
+        VALUES (?, ?, ?)
         """,
         [
-            ("Q1", "c1", "abc", "2024-01-01T00:00:00Z"),
-            ("Q2", "c2", "def", "2024-01-01T00:00:00Z"),
+            ("Q1", "c1", "2024-01-01T00:00:00Z"),
+            ("Q2", "c2", "2024-01-01T00:00:00Z"),
         ],
     )
     conn.commit()
     conn.close()
 
     monkeypatch.setattr("tasks.update_embeddings.get_run_logger", lambda: logging.getLogger("test_logger"))
+    monkeypatch.setattr("tasks.update_embeddings.perform_pdf_indexing", lambda components, db_path: len(components))
 
     processed = update_embeddings.fn(str(db_path))
 
     conn = sqlite3.connect(str(db_path))
-    cur = conn.execute("SELECT qid, component, checksum FROM embeddings_index ORDER BY qid")
-    rows = cur.fetchall()
+    cur = conn.execute("SELECT COUNT(*) FROM embeddings_index")
+    count = cur.fetchone()[0]
     conn.close()
 
     assert processed == 2
-#    assert rows == [("Q1", "c1", "abc"), ("Q2", "c2", "def")]
+    assert count == 0  # perform_pdf_indexing stubbed; no DB writes here

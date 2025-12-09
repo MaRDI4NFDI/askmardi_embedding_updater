@@ -117,7 +117,7 @@ def update_file_index_from_lakefs(db_path: str = str(STATE_DB_PATH)) -> None:
     for key in sorted(files):
         qid = _extract_qid_from_key(key)
         if qid:
-            rows_to_write.append((qid, key, None, timestamp))
+            rows_to_write.append((qid, key, timestamp))
         else:
             skipped_no_qid += 1
 
@@ -125,8 +125,8 @@ def update_file_index_from_lakefs(db_path: str = str(STATE_DB_PATH)) -> None:
         cursor.executemany(
             """
             INSERT OR REPLACE INTO component_index
-                (qid, component, checksum, updated_at)
-            VALUES (?, ?, ?, ?)
+                (qid, component, updated_at)
+            VALUES (?, ?, ?)
             """,
             rows_to_write,
         )

@@ -31,7 +31,6 @@ SCHEMA_QUERIES = [
     CREATE TABLE IF NOT EXISTS component_index (
         qid TEXT,
         component TEXT,
-        checksum TEXT,
         updated_at TEXT,
         PRIMARY KEY (qid, component)
     );
@@ -40,7 +39,6 @@ SCHEMA_QUERIES = [
     CREATE TABLE IF NOT EXISTS embeddings_index (
         qid TEXT,
         component TEXT,
-        checksum TEXT,
         updated_at TEXT,
         PRIMARY KEY (qid, component)
     );
