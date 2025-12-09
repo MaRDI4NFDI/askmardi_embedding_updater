@@ -34,7 +34,14 @@ def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
     conn.close()
 
     monkeypatch.setattr("tasks.update_embeddings.get_run_logger", lambda: logging.getLogger("test_logger"))
-    monkeypatch.setattr("tasks.update_embeddings.perform_pdf_indexing", lambda components, db_path: len(components))
+    monkeypatch.setattr(
+        "tasks.update_embeddings.perform_pdf_indexing",
+        lambda components, db_path, **_: len(components),
+    )
+    monkeypatch.setattr(
+        "tasks.update_embeddings.QdrantManager",
+        lambda **_: type("Q", (), {"is_available": lambda self: True})(),
+    )
 
     processed = update_embeddings.fn(str(db_path))
 

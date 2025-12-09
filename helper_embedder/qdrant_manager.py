@@ -10,9 +10,7 @@ class QdrantManager:
 
     def __init__(
         self,
-        host: Optional[str] = "localhost",
-        port: int = 6333,
-        url: Optional[str] = None,
+        url: str = "http://localhost:6333",
         api_key: Optional[str] = None,
         collection_name: str = "rag-collection",
         distance: str = "COSINE",
@@ -21,24 +19,33 @@ class QdrantManager:
         Initialize the Qdrant client connection.
 
         Args:
-            host: Qdrant host name or IP address.
-            port: Qdrant service port.
-            collection_name: Name of the target collection to manage.
-            url: Full URL to Qdrant if provided (overrides host/port).
+            url: Full URL to Qdrant, including scheme and port.
             api_key: API key for authenticated Qdrant deployments.
+            collection_name: Name of the target collection to manage.
             distance: Distance metric name (COSINE, EUCLID, DOT).
         """
         self.collection_name = collection_name
         distance_name = distance.upper()
         self.distance = getattr(models.Distance, distance_name, models.Distance.COSINE)
 
-        client_kwargs = {"host": host, "port": port}
-        if url:
-            client_kwargs = {"url": url}
+        client_kwargs = {"url": url}
         if api_key:
             client_kwargs["api_key"] = api_key
 
         self.client = QdrantClient(**client_kwargs)
+
+    def is_available(self) -> bool:
+        """
+        Check whether the configured Qdrant service is reachable.
+
+        Returns:
+            bool: True if a basic API call succeeds, False otherwise.
+        """
+        try:
+            self.client.get_collections()
+            return True
+        except Exception:
+            return False
 
     def recreate_collection(self, vector_size: int) -> None:
         """
@@ -102,11 +109,8 @@ class QdrantManager:
                 "page_content": doc.page_content,
                 "embeddings": vector,
             }
-            if id_prefix:
-                # Qdrant accepts UUIDs or unsigned ints as IDs
-                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{id_prefix}-{idx}"))
-            else:
-                point_id = idx
+            # Qdrant accepts UUIDs or unsigned ints as IDs; use deterministic UUIDs when prefixed.
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{id_prefix}-{idx}")) if id_prefix else idx
             points.append(
                 models.PointStruct(
                     id=point_id,

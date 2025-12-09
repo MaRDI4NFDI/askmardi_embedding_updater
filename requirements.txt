@@ -21,3 +21,4 @@ langchain-experimental
 langchain-community
 langchain-huggingface
 pypdf
+openai

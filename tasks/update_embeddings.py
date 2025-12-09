@@ -48,7 +48,10 @@ def get_software_items_with_pdf_component(
 
 
 def perform_pdf_indexing(
-    components: List[Tuple[str, str]], db_path: str, max_number_of_pdfs: int | None = None
+    components: List[Tuple[str, str]],
+    db_path: str,
+    qdrant_manager: QdrantManager | None = None,
+    max_number_of_pdfs: int | None = None,
 ) -> int:
     """
     Build embeddings for component PDFs and push them to Qdrant.
@@ -56,34 +59,27 @@ def perform_pdf_indexing(
     Args:
         components: Iterable of (qid, component) rows from the DB.
         db_path: Path to the workflow's SQLite state database.
+        qdrant_manager: Qdrant client wrapper to persist embeddings. If None, a new instance is created from config.
         max_number_of_pdfs: Max number of documents to process
     """
     logger = get_run_logger()
     conn = get_connection(db_path)
     cursor = conn.cursor()
 
-    qdrant_cfg = cfg("qdrant")
     embedding_cfg = cfg("embedding")
 
     model_name = embedding_cfg.get("model_name", "sentence-transformers/all-MiniLM-L6-v2")
     embedder = EmbedderTools(model_name=model_name)
 
-    qdrant_host = qdrant_cfg.get("host")
-    qdrant_port = qdrant_cfg.get("port", 6333)
-    qdrant_collection = qdrant_cfg.get("collection", "software_docs")
-    qdrant_distance = qdrant_cfg.get("distance", "COSINE")
-    qdrant_api_key = qdrant_cfg.get("api_key")
-    qdrant_url = None
+    if qdrant_manager is None:
+        qdrant_cfg = cfg("qdrant")
+        qdrant_manager = QdrantManager(
+            url=qdrant_cfg.get("url", "http://localhost:6333"),
+            api_key=qdrant_cfg.get("api_key"),
+            collection_name=qdrant_cfg.get("collection", "software_docs"),
+            distance=qdrant_cfg.get("distance", "COSINE"),
+        )
 
-    qdrant_kwargs = {
-        "host": qdrant_host,
-        "port": qdrant_port,
-        "url": qdrant_url,
-        "api_key": qdrant_api_key,
-        "collection_name": qdrant_collection,
-        "distance": qdrant_distance,
-    }
-    qdrant_manager = QdrantManager(**qdrant_kwargs)
     qdrant_manager.ensure_collection(vector_size=embedder.embedding_dimension)
 
     processed = 0
@@ -168,6 +164,17 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         int: Number of component records processed into embeddings_index.
     """
     logger = get_run_logger()
+    qdrant_cfg = cfg("qdrant")
+    qdrant_manager = QdrantManager(
+        url=qdrant_cfg.get("url", "http://localhost:6333"),
+        api_key=qdrant_cfg.get("api_key"),
+        collection_name=qdrant_cfg.get("collection", "software_docs"),
+        distance=qdrant_cfg.get("distance", "COSINE"),
+    )
+
+    if not qdrant_manager.is_available():
+        logger.error("Qdrant server is unreachable with the current configuration.")
+        raise RuntimeError("Qdrant server is not reachable.")
 
     # First get an overview
     get_software_items_with_pdf_component.fn(db_path=db_path)
@@ -205,7 +212,12 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         return 0
 
     conn.close()
-    processed = perform_pdf_indexing(components=components, db_path=db_path, max_number_of_pdfs=max_number_of_pdfs)
+    processed = perform_pdf_indexing(
+        components=components,
+        db_path=db_path,
+        qdrant_manager=qdrant_manager,
+        max_number_of_pdfs=max_number_of_pdfs,
+    )
 
 
     logger.info("Embeddings index update complete")

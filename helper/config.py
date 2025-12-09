@@ -1,8 +1,10 @@
-import yaml
+import logging
 from pathlib import Path
 from typing import Dict
 
+import yaml
 from prefect import get_run_logger
+from prefect.exceptions import MissingContextError
 
 CONFIG_PATH = Path("config.yaml")
 
@@ -82,7 +84,11 @@ def cfg(section: str, config_path: Path = CONFIG_PATH) -> dict:
     Raises:
         KeyError: If the section is not present in the config file.
     """
-    logger = get_run_logger()
+    try:
+        logger = get_run_logger()
+    except MissingContextError:
+        logger = logging.getLogger(__name__)
+        logger.addHandler(logging.NullHandler())
     logger.debug(f"Checking for config file at: {Path}")
 
     config = load_config(config_path)

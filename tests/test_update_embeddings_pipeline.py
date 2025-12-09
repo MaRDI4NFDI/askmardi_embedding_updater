@@ -48,6 +48,9 @@ class FakeQdrantManager:
     def __init__(self, **kwargs):
         self.uploaded = []
 
+    def is_available(self):
+        return True
+
     def ensure_collection(self, vector_size: int):
         return None
 

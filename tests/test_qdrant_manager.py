@@ -88,7 +88,7 @@ def test_qdrant_manager_ensure_and_upload(monkeypatch):
     collection, points = client.uploaded[0]
     assert collection == "test"
     assert points[0].payload["page_content"] == "hello"
-    assert points[0].id == "Q1-0"
+    assert points[0].id == "cd323cb5-8784-58c5-85a9-4419450f4724"
 
 
 def test_qdrant_manager_query(monkeypatch):
