@@ -70,6 +70,12 @@ def test_qdrant_manager_ensure_and_upload(monkeypatch):
             def __init__(self, on_disk):
                 self.on_disk = on_disk
 
+        class PointStruct:
+            def __init__(self, id, vector, payload):
+                self.id = id
+                self.vector = vector
+                self.payload = payload
+
     monkeypatch.setattr(qdrant_manager, "models", FakeModels)
 
     mgr = qdrant_manager.QdrantManager(collection_name="test")

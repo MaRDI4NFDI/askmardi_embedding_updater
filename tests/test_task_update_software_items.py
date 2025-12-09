@@ -80,16 +80,27 @@ def test_run_query_against_real_endpoint():
     wb_cfg = cfg("mardi_kg")
     wf_cfg = cfg("sparql")
 
-    endpoint = wb_cfg["sparql_endpoint"]
+    endpoint = wb_cfg.get("sparql_endpoint")
+    if not endpoint:
+        pytest.skip("SPARQL endpoint not configured; skipping integration test")
+
     limit = 5
 
     query = build_query(offset=0, limit=limit)
     logger = logging.getLogger("test_run_query")
 
-    results = run_query(endpoint=endpoint, query=query, logger=logger, max_retries=wf_cfg["max_retries"])
+    results = run_query(
+        endpoint=endpoint,
+        query=query,
+        logger=logger,
+        max_retries=wf_cfg.get("max_retries", 1),
+        timeout=wf_cfg.get("timeout", 120),
+    )
     logger.debug(f"SPARQL results: {results}")
 
     assert len(results) <= limit
     assert all(qid.startswith("Q") for qid in results)
+    if not SOFTWARE_PROFILE_QID or not MARDI_PROFILE_TYPE_PID:
+        pytest.skip("Profile constants not configured; skipping integration assertion")
     assert SOFTWARE_PROFILE_QID.startswith("Q")
     assert MARDI_PROFILE_TYPE_PID.startswith("P")

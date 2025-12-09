@@ -1,6 +1,7 @@
 import io
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 from langchain_core.documents import Document
@@ -34,7 +35,7 @@ class FakeEmbedder:
         return [Document(page_content="test content", metadata={})]
 
     def split_and_filter(self, docs, min_length=250):
-        return [Document(page_content="chunked text", metadata=docs[0].metadata.copy())]
+        return [Document(page_content="x" * 300, metadata=docs[0].metadata.copy())]
 
     def embed_text(self, text):
         return [1.0, 2.0, 3.0]
@@ -73,8 +74,10 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     conn.commit()
     conn.close()
 
-    fake_s3 = FakeS3Client(b"pdf-bytes")
-    monkeypatch.setattr("tasks.update_embeddings.get_lakefs_s3_client", lambda: fake_s3)
+    monkeypatch.setattr(
+        "tasks.update_embeddings.download_file",
+        lambda key, dest_path: Path(dest_path).write_bytes(b"pdf-bytes"),
+    )
     monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())
     fake_qdrant = FakeQdrantManager()
     monkeypatch.setattr("tasks.update_embeddings.QdrantManager", lambda **k: fake_qdrant)
@@ -116,8 +119,10 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
     conn.commit()
     conn.close()
 
-    fake_s3 = FakeS3Client(b"pdf-bytes")
-    monkeypatch.setattr("tasks.update_embeddings.get_lakefs_s3_client", lambda: fake_s3)
+    monkeypatch.setattr(
+        "tasks.update_embeddings.download_file",
+        lambda key, dest_path: Path(dest_path).write_bytes(b"pdf-bytes"),
+    )
     monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())
     fake_qdrant = FakeQdrantManager()
     monkeypatch.setattr("tasks.update_embeddings.QdrantManager", lambda **k: fake_qdrant)
