@@ -5,8 +5,8 @@ from helper.config import CONFIG_PATH, check_for_config
 from helper.constants import STATE_DB_PATH
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
-from tasks.update_software_items import update_software_items_from_mardi
-from tasks.update_lakefs_file_index import update_lakefs_file_index
+from tasks.update_software_items import update_software_item_index_from_mardi
+from tasks.update_lakefs_file_index import update_file_index_from_lakefs
 from tasks.update_embeddings import update_embeddings, get_software_items_with_pdf_component
 from tasks.state_push import push_state_db_to_lakefs
 
@@ -23,8 +23,8 @@ def start_update_embedding_workflow():
     pulled = pull_state_db_from_lakefs()
     if not pulled:
         init_db_task()
-    update_software_items_from_mardi()
-    update_lakefs_file_index()
+    update_software_item_index_from_mardi()
+    update_file_index_from_lakefs()
     update_embeddings()
     push_state_db_to_lakefs()
 

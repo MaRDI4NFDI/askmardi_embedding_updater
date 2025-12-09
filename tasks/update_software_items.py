@@ -80,7 +80,7 @@ def run_query(endpoint: str, query: str, logger, max_retries: int, timeout: int=
 
 
 @task(name="update_software_items")
-def update_software_items_from_mardi(
+def update_software_item_index_from_mardi(
     db_path: str = str(STATE_DB_PATH),
 ) -> List[str]:
     """
@@ -112,7 +112,7 @@ def update_software_items_from_mardi(
 
     cursor.execute("SELECT COUNT(*) FROM software_index")
     existing_rows = cursor.fetchone()[0]
-    logger.info(f"Existing software_index rows: {existing_rows:,}")
+    logger.debug(f"Existing software_index rows: {existing_rows:,}")
 
     offset = existing_rows if existing_rows > 0 else 0
 
@@ -139,7 +139,7 @@ def update_software_items_from_mardi(
                 else min(per_query_limit, remaining)
             )
 
-        logger.info(f"Querying SPARQL OFFSET={offset} LIMIT={limit_for_query}")
+        logger.debug(f"Querying SPARQL OFFSET={offset} LIMIT={limit_for_query}")
 
         query = build_query(offset=offset, limit=limit_for_query)
         batch = run_query(endpoint, query, logger, max_retries, timeout)

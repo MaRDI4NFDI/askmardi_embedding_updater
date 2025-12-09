@@ -60,7 +60,7 @@ def _iter_repo_files(s3_client, bucket: str, prefix: str) -> Set[str]:
 
 
 @task(name="update_lakefs_file_index")
-def update_lakefs_file_index(db_path: str = str(STATE_DB_PATH)) -> None:
+def update_file_index_from_lakefs(db_path: str = str(STATE_DB_PATH)) -> None:
     """
     Index all files found in the LakeFS repository under the given branch.
 

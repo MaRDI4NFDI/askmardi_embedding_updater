@@ -14,19 +14,19 @@ def push_state_db_to_lakefs(db_path: str = str(STATE_DB_PATH)) -> None:
         db_path: Local path of the state DB file to persist.
     """
     logger = get_run_logger()
-    logger.info(f"[push_state_db] Uploading state DB: {db_path}")
+    logger.debug(f"[push_state_db] Start pushing stade DB...")
 
     try:
         changed = upload_state_db(local_path=db_path)
 
         # If no changes, skip commit and return success
         if not changed:
-            logger.info("[push_state_db] No changes detected — skipping commit.")
+            logger.debug("[push_state_db] No changes detected — skipping commit.")
             return
 
         try:
             commit_state_db(message="Updated state database for askmardi_embedding_updater")
-            logger.info("[push_state_db] State DB committed successfully.")
+            logger.info("[push_state_db] New version of state DB committed successfully.")
 
         except ApiException as e:
             body = getattr(e, "body", "")

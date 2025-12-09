@@ -2,7 +2,7 @@ import logging
 import sqlite3
 
 from tasks.init_db_task import _init_db
-from tasks.update_lakefs_file_index import update_lakefs_file_index
+from tasks.update_lakefs_file_index import update_file_index_from_lakefs
 
 
 def test_update_lakefs_file_index_scans_s3_gateway(tmp_path, monkeypatch):
@@ -48,7 +48,7 @@ def test_update_lakefs_file_index_scans_s3_gateway(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("tasks.update_lakefs_file_index.get_run_logger", lambda: logging.getLogger("test_logger"))
 
-    update_lakefs_file_index.fn(str(db_path))
+    update_file_index_from_lakefs.fn(str(db_path))
 
     conn = sqlite3.connect(str(db_path))
     cur = conn.execute(

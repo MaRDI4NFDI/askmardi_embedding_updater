@@ -82,7 +82,7 @@ def download_state_db(local_path: str = str(STATE_DB_PATH)):
     prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
     path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
 
-    logger.info(f"[download_state_db] Downloading state DB from {repo}:{branch}/{path_in_repo}")
+    logger.debug(f"[download_state_db] Downloading state DB from {repo}:{branch}/{path_in_repo}")
 
     try:
         lakefs.objects_api.stat_object(repo, branch, path_in_repo)
@@ -109,7 +109,7 @@ def download_state_db(local_path: str = str(STATE_DB_PATH)):
         with open(local_path_obj, "wb") as fh:
             fh.write(obj.read())
 
-        logger.info(f"[download_state_db] Successfully downloaded to {local_path_obj}")
+        logger.debug(f"[download_state_db] Successfully downloaded to {local_path_obj}")
         return True
 
     except Exception as e:
@@ -161,7 +161,7 @@ def upload_state_db(local_path: str = str(STATE_DB_PATH)) -> bool:
         logger.info("[upload_state_db] No changes detected — skipping upload")
         return True
 
-    logger.info(f"[upload_state_db] Uploading DB to LakeFS: {repo}:{branch}/{path_in_repo}")
+    logger.debug(f"[upload_state_db] Uploading DB to LakeFS: {repo}:{branch}/{path_in_repo}")
 
     try:
         with open(local_path, "rb") as fh:
