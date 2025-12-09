@@ -90,8 +90,8 @@ def perform_pdf_indexing(
     for qid, component in components:
 
         cursor.execute(
-            "SELECT 1 FROM embeddings_index WHERE qid = ? LIMIT 1",
-            (qid,),
+            "SELECT 1 FROM embeddings_index WHERE qid = ? AND component = ? LIMIT 1",
+            (qid, component),
         )
         if cursor.fetchone():
             logger.debug(f"Skipping {qid} — already embedded")
@@ -187,7 +187,17 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         """
     )
     components = cursor.fetchall()
-    logger.info(f"Found {len(components):,} component records to sync")
+    total_components = len(components)
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM embeddings_index"
+    )
+    already_embedded = cursor.fetchone()[0]
+    remaining = max(total_components - already_embedded, 0)
+
+    logger.info(
+        f"Found {total_components:,} component records; {remaining:,} pending embeddings"
+    )
 
     if not components:
         conn.close()
