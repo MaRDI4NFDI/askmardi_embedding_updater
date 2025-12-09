@@ -1,6 +1,7 @@
 from pathlib import Path
 from prefect import flow
 
+from helper.config import CONFIG_PATH, check_for_config
 from helper.constants import STATE_DB_PATH
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
@@ -11,7 +12,7 @@ from tasks.state_push import push_state_db_to_lakefs
 
 
 @flow(name="software-doc-embedding-sync")
-def software_doc_embedding_sync():
+def start_update_embedding_workflow():
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
     """
@@ -29,4 +30,7 @@ def software_doc_embedding_sync():
 
 
 if __name__ == "__main__":
-    software_doc_embedding_sync()
+    if check_for_config():
+        start_update_embedding_workflow()
+    else:
+        raise SystemExit(1)

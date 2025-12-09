@@ -3,15 +3,16 @@ Shared constants loaded from configuration.
 """
 
 from pathlib import Path
+from typing import Optional
 
-from helper.config import cfg
+# These values are placeholders and will be populated in ``load_config`` once
+# config.yaml is read.
+SOFTWARE_PROFILE_QID: Optional[str] = None
+MARDI_PROFILE_TYPE_PID: Optional[str] = None
 
-# QID representing the software class in Wikibase.
-SOFTWARE_PROFILE_QID: str = cfg("mardi_kg")["mardi_software_profile_qid"]
-MARDI_PROFILE_TYPE_PID: str = cfg("mardi_kg")["mardi_profile_type_pid"]
-
-# LakeFS state DB filename and default local path
+# Config for state database
 STATE_DB_FILENAME: str = "askmardi_embedding_updater__state.db"
 STATE_DB_PATH: Path = Path("state") / STATE_DB_FILENAME
 
+# Which files should be looked for when doing a full lakeFS scan
 ALLOWED_EXTENSIONS = {"pdf", "html", "txt"}
