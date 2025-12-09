@@ -2,14 +2,31 @@ from functools import partial
 from typing import Any, List
 
 import pytest
+from langchain_community.chat_models import ChatOpenAI
 
 from helper.config import cfg
 from helper_embedder.embedder_tools import EmbedderTools
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 from openai import OpenAI
 from qdrant_client import QdrantClient
+
+
+def _llm_health_check(llm_client: OpenAI) -> None:
+    """Perform a minimal chat completion to verify LLM availability."""
+    completion = llm_client.chat.completions.create(
+        model="llama3.2:latest",
+        messages=[{"role": "user", "content": "Test"}],
+        temperature=0,
+    )
+    if not completion or not getattr(completion, "choices", None):
+        raise AssertionError("LLM health check returned no choices")
+    content = completion.choices[0].message.content
+    if not content:
+        raise AssertionError("LLM health check returned empty content")
+    # print(f"[_llm_health_check] Completion: {completion}")
 
 
 def _custom_retrieve(
@@ -18,17 +35,7 @@ def _custom_retrieve(
     embeddings: Any,
     collection: str,
 ) -> List[Document]:
-    """Fetch top candidate documents from Qdrant for a query.
-
-    Args:
-        query: Natural language question to embed and search.
-        client: Qdrant client instance to query against.
-        embeddings: Embedding model that provides `embed_query`.
-        collection: Qdrant collection name.
-
-    Returns:
-        List[Document]: Ranked documents returned by Qdrant.
-    """
+    """Fetch top candidate documents from Qdrant for a query."""
     query_embedding = embeddings.embed_query(query)
     res = client.query_points(
         collection_name=collection,
@@ -45,41 +52,15 @@ def _custom_retrieve(
 
 
 def _format_retrieved_data(docs: List[Document]) -> str:
-    """Join the top results into a context block.
-
-    Args:
-        docs: Retrieved documents sorted by similarity.
-
-    Returns:
-        str: Concatenated page content for downstream prompting.
-    """
+    """Join the top results into a context block."""
     return "\n\n".join([doc.page_content for doc in docs[:3]])
-
-
-def _run_llm(prompt_text: str, llm_client: OpenAI, llm_model: str) -> str:
-    """Query the configured OpenAI-compatible model for a response.
-
-    Args:
-        prompt_text: Fully rendered prompt text.
-        llm_client: OpenAI client instance.
-        llm_model: Model identifier to use for chat completions.
-
-    Returns:
-        str: Content returned by the chat completion.
-    """
-    completion = llm_client.chat.completions.create(
-        model=llm_model,
-        messages=[{"role": "user", "content": prompt_text}],
-        temperature=0,
-    )
-    return completion.choices[0].message.content or ""
 
 
 @pytest.mark.integration
 def test_live_rag_chain_with_qdrant():
     """
-    Run a live RAG query against Qdrant if the service and API keys are available.
-    Skips automatically when Qdrant or the generative model credentials are absent.
+    Run a live RAG query against Qdrant if everything is reachable.
+    Automatically skipped when services or credentials are missing.
     """
     qdrant_cfg = cfg("qdrant")
     url = qdrant_cfg.get("url", "http://localhost:6333")
@@ -87,19 +68,16 @@ def test_live_rag_chain_with_qdrant():
     print(f"[Live RAG] Qdrant config: url={url}, collection={collection}")
 
     try:
-        client = QdrantClient(
-            url=url,
-            api_key=qdrant_cfg.get("api_key"),
-        )
+        client = QdrantClient(url=url, api_key=qdrant_cfg.get("api_key"))
         _ = client.get_collections()
-    except Exception as e:
-        print( e )
+    except Exception:
         pytest.skip("Qdrant not reachable; skipping live RAG test")
 
     llm_cfg = cfg("llm")
     llm_host = llm_cfg.get("host")
     llm_model = llm_cfg.get("model_name")
     llm_api_key = llm_cfg.get("api_key")
+
     print(
         "[Live RAG] LLM config: "
         f"base_url={llm_host}, model={llm_model}, api_key_present={bool(llm_api_key)}"
@@ -108,6 +86,7 @@ def test_live_rag_chain_with_qdrant():
     if not llm_host or not llm_api_key or not llm_model:
         pytest.skip("LLM configuration incomplete; skipping live RAG test")
 
+    # Set up embedder
     embedder = EmbedderTools(
         model_name=cfg("embedding").get(
             "model_name",
@@ -115,6 +94,7 @@ def test_live_rag_chain_with_qdrant():
         )
     )
     embeddings = embedder.embeddings
+
     retriever_ranked = RunnableLambda(
         partial(
             _custom_retrieve,
@@ -126,30 +106,64 @@ def test_live_rag_chain_with_qdrant():
 
     prompt = PromptTemplate(
         template="""You are an assistant for question-answering tasks. Use only the provided context below to answer the question.
-Do not use any prior knowledge or make assumptions. If the answer is not in the context, respond with "I don't know".
-Keep the answer concise and use ten sentences.
-Question: {question}
-Context:
-{context}
-Answer:
-""",
+    Do not use any prior knowledge or make assumptions.
+
+    If the answer is not in the context:
+    - Respond with exactly: "I don't know."
+    - Do not write anything else.
+
+    If the answer is in the context:
+    - Keep the answer concise.
+    - Use at most ten sentences.
+
+    Question: {question}
+    Context:
+    {context}
+    Answer:
+    """,
         input_variables=["context", "question"],
     )
 
-    llm_client = OpenAI(
+    # Main LLM for chain execution
+    llm = ChatOpenAI(
         base_url=llm_host,
         api_key=llm_api_key,
+        model_name=llm_model,
+        temperature=0,
     )
 
+    # Validate LLM availability independently
+    client_health = OpenAI(base_url=llm_host, api_key=llm_api_key)
+    _llm_health_check(client_health)
+
+    # RAG Chain
     rag_chain = (
         {
             "context": retriever_ranked | _format_retrieved_data,
             "question": RunnablePassthrough(),
         }
         | prompt
-        | RunnableLambda(partial(_run_llm, llm_client=llm_client, llm_model=llm_model))
+        | llm
+        | StrOutputParser()
     )
 
-    result = rag_chain.invoke("What does this collection document?")
+    result = rag_chain.invoke("What could be the mathematical concept of this?")
+    print(f"[Live RAG] Result: {result}")
     assert isinstance(result, str)
     assert len(result) > 0
+
+
+@pytest.mark.integration
+def test_llm_health_check_runs():
+    llm_cfg = cfg("llm")
+    llm_host = llm_cfg.get("host")
+    llm_api_key = llm_cfg.get("api_key")
+
+    if not llm_host or not llm_api_key:
+        pytest.skip("LLM configuration incomplete; skipping health check test")
+
+    client = OpenAI(
+        base_url=llm_host,
+        api_key=llm_api_key,
+    )
+    _llm_health_check(client)
