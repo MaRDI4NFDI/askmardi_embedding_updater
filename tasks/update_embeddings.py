@@ -48,7 +48,7 @@ def get_software_items_with_pdf_component(
 
 
 def perform_pdf_indexing(
-    components: List[Tuple[str, str]], db_path: str
+    components: List[Tuple[str, str]], db_path: str, max_number_of_pdfs: int | None = None
 ) -> int:
     """
     Build embeddings for component PDFs and push them to Qdrant.
@@ -56,6 +56,7 @@ def perform_pdf_indexing(
     Args:
         components: Iterable of (qid, component) rows from the DB.
         db_path: Path to the workflow's SQLite state database.
+        max_number_of_pdfs: Max number of documents to process
     """
     logger = get_run_logger()
     conn = get_connection(db_path)
@@ -137,6 +138,10 @@ def perform_pdf_indexing(
             processed += 1
             logger.info(f"Embedded and indexed {qid} ({component})")
 
+            if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
+                logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
+                break
+
         except Exception as exc:
             logger.warning(f"Embedding failed for {qid} ({component}): {exc}")
         finally:
@@ -152,7 +157,7 @@ def perform_pdf_indexing(
 
 
 @task(name="update_embeddings")
-def update_embeddings(db_path: str = str(STATE_DB_PATH)) -> int:
+def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int | None = None) -> int:
     """
     Synchronize embeddings_index rows with the current component_index entries.
 
@@ -190,7 +195,7 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH)) -> int:
         return 0
 
     conn.close()
-    processed = perform_pdf_indexing(components=components, db_path=db_path)
+    processed = perform_pdf_indexing(components=components, db_path=db_path, max_number_of_pdfs=max_number_of_pdfs)
 
 
     logger.info("Embeddings index update complete")
