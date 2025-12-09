@@ -1,3 +1,4 @@
+import uuid
 from typing import Callable, List, Optional
 
 from langchain_core.documents import Document
@@ -101,7 +102,11 @@ class QdrantManager:
                 "page_content": doc.page_content,
                 "embeddings": vector,
             }
-            point_id = f"{id_prefix}-{idx}" if id_prefix else idx
+            if id_prefix:
+                # Qdrant accepts UUIDs or unsigned ints as IDs
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{id_prefix}-{idx}"))
+            else:
+                point_id = idx
             points.append(
                 models.PointStruct(
                     id=point_id,

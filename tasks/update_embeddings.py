@@ -61,7 +61,6 @@ def perform_pdf_indexing(
     conn = get_connection(db_path)
     cursor = conn.cursor()
 
-    lakefs_cfg = cfg("lakefs")
     qdrant_cfg = cfg("qdrant")
     embedding_cfg = cfg("embedding")
 
@@ -73,12 +72,7 @@ def perform_pdf_indexing(
     qdrant_collection = qdrant_cfg.get("collection", "software_docs")
     qdrant_distance = qdrant_cfg.get("distance", "COSINE")
     qdrant_api_key = qdrant_cfg.get("api_key")
-    qdrant_host_cfg = qdrant_cfg.get("host")
     qdrant_url = None
-    qdrant_host = qdrant_host_cfg
-    if qdrant_host_cfg and str(qdrant_host_cfg).startswith("http"):
-        qdrant_url = qdrant_host_cfg.rstrip("/")
-        qdrant_host = None
 
     qdrant_kwargs = {
         "host": qdrant_host,
