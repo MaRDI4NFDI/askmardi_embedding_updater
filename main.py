@@ -34,3 +34,6 @@ if __name__ == "__main__":
         start_update_embedding_workflow()
     else:
         raise SystemExit(1)
+
+
+# https://github.com/shanojpillai/qdrant-rag-pro

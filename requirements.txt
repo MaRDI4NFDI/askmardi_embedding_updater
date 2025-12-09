@@ -13,3 +13,11 @@ requests>=2.31.0
 sqlite-utils>=3.35
 sentence-transformers
 urllib3<2
+
+
+langchain
+langchain-ollama
+langchain-experimental
+langchain-community
+langchain-huggingface
+pypdf
