@@ -126,6 +126,28 @@ def _file_md5(path: str) -> str:
     return md5.hexdigest()
 
 
+def download_file(key: str, dest_path: str) -> None:
+    """
+    Download an object from LakeFS via the S3 gateway.
+
+    Args:
+        key: Full object key, typically including branch prefix (e.g., "main/.../file.pdf").
+        dest_path: Local filesystem path to write the object contents.
+
+    Raises:
+        Exception: Propagates any download or write errors.
+    """
+    logger = get_run_logger()
+    lakefs_cfg = cfg("lakefs")
+    bucket = lakefs_cfg["data_repo"]
+    s3_client = get_lakefs_s3_client()
+
+    logger.debug(f"[download_file] Downloading from lakeFS with s3://{bucket}/{key} -> {dest_path}")
+    obj = s3_client.get_object(Bucket=bucket, Key=key)
+    with open(dest_path, "wb") as fh:
+        fh.write(obj["Body"].read())
+
+
 def upload_state_db(local_path: str = str(STATE_DB_PATH)) -> bool:
     """
     Upload the local state SQLite DB to LakeFS only if changed.

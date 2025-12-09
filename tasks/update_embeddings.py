@@ -7,7 +7,7 @@ from prefect import task, get_run_logger
 
 from helper.config import cfg
 from helper.constants import STATE_DB_PATH
-from helper.lakefs import get_lakefs_s3_client
+from helper.lakefs import download_file
 from helper_embedder.embedder_tools import EmbedderTools
 from helper_embedder.qdrant_manager import QdrantManager
 from tasks.init_db_task import get_connection
@@ -65,9 +65,6 @@ def perform_pdf_indexing(
     qdrant_cfg = cfg("qdrant")
     embedding_cfg = cfg("embedding")
 
-    s3_client = get_lakefs_s3_client()
-    bucket = lakefs_cfg["data_repo"]
-
     model_name = embedding_cfg.get("model_name", "sentence-transformers/all-MiniLM-L6-v2")
     embedder = EmbedderTools(model_name=model_name)
 
@@ -109,9 +106,7 @@ def perform_pdf_indexing(
             tmp_path = tmp_file.name
             try:
                 logger.info(f"Downloading PDF for {qid} from {component}")
-                obj = s3_client.get_object(Bucket=bucket, Key=component)
-                tmp_file.write(obj["Body"].read())
-                tmp_file.flush()
+                download_file(key=component, dest_path=tmp_path)
             except Exception as exc:
                 logger.warning(f"Failed to download {component} for {qid}: {exc}")
                 continue
