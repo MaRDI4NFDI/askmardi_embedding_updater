@@ -97,7 +97,15 @@ def download_state_db(local_path: str = str(STATE_DB_PATH)):
         if local_path_obj.exists():
             timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
             backup_path = local_path_obj.with_name(f"{local_path_obj.name}.backup_{timestamp}")
-            local_path_obj.rename(backup_path)
+            try:
+                local_path_obj.rename(backup_path)
+            except PermissionError:
+                msg = (
+                    f"[download_state_db] Cannot back up existing DB because the file is in use: "
+                    f"{local_path_obj}. Please close processes holding the file and retry."
+                )
+                logger.error(msg)
+                raise RuntimeError(msg) from None
             logger.info(f"[download_state_db] Existing local DB backed up to {backup_path}")
 
         obj = lakefs.objects_api.get_object(
@@ -114,7 +122,7 @@ def download_state_db(local_path: str = str(STATE_DB_PATH)):
 
     except Exception as e:
         logger.error(f"[download_state_db] Failed to download state DB: {e}")
-        return False
+        raise
 
 
 def _file_md5(path: str) -> str:
