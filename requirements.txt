@@ -20,5 +20,6 @@ langchain-ollama
 langchain-experimental
 langchain-community
 langchain-huggingface
+langchain-openai
 pypdf
 openai

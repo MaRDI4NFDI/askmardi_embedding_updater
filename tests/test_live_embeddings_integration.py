@@ -2,7 +2,6 @@ from functools import partial
 from typing import Any, List
 
 import pytest
-from langchain_community.chat_models import ChatOpenAI
 
 from helper.config import cfg
 from helper_embedder.embedder_tools import EmbedderTools
@@ -10,6 +9,7 @@ from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
+from langchain_openai import ChatOpenAI
 from openai import OpenAI
 from qdrant_client import QdrantClient
 
