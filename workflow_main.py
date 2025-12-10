@@ -9,6 +9,7 @@ from helper.config import CONFIG_PATH, check_for_config, cfg
 from helper.constants import STATE_DB_PATH
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
+from tasks.state_push import snapshot_table_counts
 from tasks.update_software_items import update_software_item_index_from_mardi
 from tasks.update_lakefs_file_index import update_file_index_from_lakefs
 from tasks.update_embeddings import update_embeddings, get_software_items_with_pdf_component
@@ -33,13 +34,14 @@ def start_update_embedding_workflow():
     pulled = pull_state_db_from_lakefs()
     if not pulled:
         init_db_task()
+    baseline_counts = snapshot_table_counts(db_path)
     update_software_item_index_from_mardi()
     update_file_index_from_lakefs()
 
     for iteration in range(update_embeddings_loop_iterations):
 
         update_embeddings(max_number_of_pdfs=update_embeddings_embeddings_per_loop)
-        push_state_db_to_lakefs()
+        push_state_db_to_lakefs(baseline_counts=baseline_counts)
 
         completed = iteration + 1
         remaining = update_embeddings_loop_iterations - completed

@@ -218,6 +218,9 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         return 0
 
     conn.close()
+
+    logger.info( f"Starting downloading & embedding of {max_number_of_pdfs} PDFs." )
+
     processed = perform_pdf_indexing(
         components=components,
         db_path=db_path,
