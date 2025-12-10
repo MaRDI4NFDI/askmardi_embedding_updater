@@ -1,10 +1,13 @@
 import logging
 import sqlite3
 
+import pytest
+
 from tasks.init_db_task import _init_db
 from tasks.update_embeddings import update_embeddings
 
 
+@pytest.mark.integration
 def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
     db_path = tmp_path / "state.db"
     _init_db(str(db_path))
