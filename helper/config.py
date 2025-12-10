@@ -181,10 +181,10 @@ def _apply_env_lakefs_credentials(config: Dict, logger) -> None:
 
     if env_user:
         updated["user"] = env_user
-        logger.info("LakeFS user loaded from environment variable LAKEFS_USER.")
+        logger.debug("LakeFS user loaded from environment variable LAKEFS_USER.")
     if env_password:
         updated["password"] = env_password
-        logger.info("LakeFS password loaded from environment variable LAKEFS_PASSWORD.")
+        logger.debug("LakeFS password loaded from environment variable LAKEFS_PASSWORD.")
 
     config["lakefs"] = updated
 
