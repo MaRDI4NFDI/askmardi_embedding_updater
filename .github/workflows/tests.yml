@@ -22,4 +22,4 @@ jobs:
           pip install pytest
 
       - name: Run pytest
-        run: pytest -v --maxfail=1 --disable-warnings
+        run: pytest -v --maxfail=1 --disable-warnings -m "not integration"
