@@ -93,7 +93,7 @@ def perform_pdf_indexing(
             logger.debug(f"Skipping {qid} — already embedded")
             continue
 
-        logger.info(f"Downloading and Embedding PDF for QID: {qid} ...")
+        logger.info(f"Downloading and Embedding PDF {processed+1}/{max_number_of_pdfs}  for QID: {qid} ...")
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
             tmp_path = tmp_file.name
@@ -189,6 +189,16 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         raise RuntimeError(f"Qdrant server is unreachable @: {url}")
 
     # First get an overview
+    try:
+        current_points = qdrant_manager.collection_size()
+        logger.info(
+            "Qdrant collection '%s' currently holds %s vectors.",
+            qdrant_cfg.get("collection", "software_docs"),
+            f"{current_points:,}",
+        )
+    except Exception as exc:
+        logger.warning(f"Could not read Qdrant collection size: {exc}")
+
     get_software_items_with_pdf_component.fn(db_path=db_path)
 
     logger.info("Updating embeddings_index from component_index")
@@ -234,7 +244,14 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         max_number_of_pdfs=max_number_of_pdfs,
     )
 
+    # Compute changes
+    try:
+        current_points_after_update = qdrant_manager.collection_size()
+    except Exception as exc:
+        logger.warning(f"Could not read Qdrant collection size: {exc}")
 
-    logger.info("Embeddings index update complete")
+    new_points = current_points_after_update - current_points
+
+    logger.info(f"Embeddings index update complete. Added {new_points:,} vectors.")
 
     return processed
