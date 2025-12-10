@@ -93,6 +93,8 @@ def perform_pdf_indexing(
             logger.debug(f"Skipping {qid} — already embedded")
             continue
 
+        logger.info(f"Downloading and Embedding PDF for QID: {qid} ...")
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
             tmp_path = tmp_file.name
             try:
@@ -103,6 +105,8 @@ def perform_pdf_indexing(
                 continue
 
         try:
+            logger.debug("Embedding PDF ...")
+
             documents = embedder.load_pdf_file(tmp_path)
             for doc in documents:
                 doc.metadata.update({
@@ -118,6 +122,8 @@ def perform_pdf_indexing(
             if not chunks:
                 logger.warning(f"No valid chunks produced for {qid} ({component})")
                 continue
+
+            logger.debug("Writing embeddings to Qdrant db ...")
 
             qdrant_manager.upload_documents(
                 documents=chunks,

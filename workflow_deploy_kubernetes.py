@@ -21,4 +21,9 @@ if __name__ == "__main__":
         image="ghcr.io/mardi4nfdi/askmardi_embedding_updater:latest",
         push=False,
         build=False,
+        job_variables={
+            "env": {
+                "QDRANT_URL": "http://qdrant:6333",
+            }
+        },
     )
