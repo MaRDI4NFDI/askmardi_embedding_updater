@@ -11,7 +11,10 @@
 #   prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api
 #   prefect server start
 
-from prefect import flow
+# MAKE SURE that in the web-ui:
+#    "Work Pools" -> "K8 Worker Pool" -> "Base Job Configuration" -> "Image Pull Policy" is set to "ALWAYS"
+
+
 from workflow_main import start_update_embedding_workflow
 
 if __name__ == "__main__":
@@ -22,8 +25,9 @@ if __name__ == "__main__":
         push=False,
         build=False,
         job_variables={
+            "imagePullPolicy": "Always",
             "env": {
                 "QDRANT_URL": "http://qdrant:6333",
-            }
+            },
         },
     )
