@@ -189,6 +189,7 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         raise RuntimeError(f"Qdrant server is unreachable @: {url}")
 
     # First get an overview
+    current_points = None
     try:
         current_points = qdrant_manager.collection_size()
         logger.info(
@@ -245,13 +246,16 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
     )
 
     # Compute changes
+    current_points_after_update = None
     try:
         current_points_after_update = qdrant_manager.collection_size()
     except Exception as exc:
         logger.warning(f"Could not read Qdrant collection size: {exc}")
 
-    new_points = current_points_after_update - current_points
-
-    logger.info(f"Embeddings index update complete. Added {new_points:,} vectors.")
+    if current_points is not None and current_points_after_update is not None:
+        new_points = current_points_after_update - current_points
+        logger.info(f"Embeddings index update complete. Added {new_points:,} vectors.")
+    else:
+        logger.info("Embeddings index update complete. Vector count unavailable.")
 
     return processed
