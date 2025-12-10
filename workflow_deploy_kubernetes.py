@@ -19,15 +19,10 @@ from prefect import flow
 if __name__ == "__main__":
     flow.from_source(
         source="https://github.com/MaRDI4NFDI/askmardi_embedding_updater.git",
-        entrypoint="workflow_main.py:process_datasets",
+        entrypoint="workflow_main.py:start_update_embedding_workflow",
     ).deploy(
-        name="paper2data_linker",
+        name="askmardi_embedding_updater",
         work_pool_name="K8WorkerPool",
-        parameters={
-            "lakefs_url": "https://lake-bioinfmed.zib.de",
-            "lakefs_repo": "mardi-workflows-files",
-            "lakefs_path": "askmardi_embedding_update/"
-        },
         job_variables={
             "image": "ghcr.io/mardi4nfdi/askmardi_embedding_updater:latest",
         },

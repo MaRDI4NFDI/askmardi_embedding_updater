@@ -15,7 +15,7 @@ from tasks.update_embeddings import update_embeddings, get_software_items_with_p
 from tasks.state_push import push_state_db_to_lakefs
 
 
-@flow(name="software-doc-embedding-sync")
+@flow(name="start_update_embedding_workflow")
 def start_update_embedding_workflow():
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
