@@ -1,28 +1,36 @@
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import yaml
 from prefect import get_run_logger
+from prefect.blocks.system import Secret
+from prefect.context import get_run_context
 from prefect.exceptions import MissingContextError
 
 CONFIG_PATH = Path("config.yaml")
 
 _cache = None  # keep config in memory
+is_prefect_environment: bool = True
 
 
 def load_config(config_path: Path = CONFIG_PATH):
-    """
-    Load and cache configuration from `config.yaml`.
+    """Load configuration and apply Prefect secret overrides when available.
+
+    Args:
+        config_path: Optional path to the config file.
 
     Returns:
-        dict: Parsed configuration data.
+        dict: Parsed configuration data with Prefect overrides applied.
 
     Raises:
         FileNotFoundError: If the expected config file does not exist.
     """
     global _cache
+    logger = _get_logger()
     if _cache is not None:
+        if is_prefect_environment:
+            _apply_prefect_lakefs_credentials(_cache, logger)
         return _cache
 
     if not config_path.exists():
@@ -30,6 +38,10 @@ def load_config(config_path: Path = CONFIG_PATH):
 
     with open(config_path, "r", encoding="utf-8") as f:
         _cache = yaml.safe_load(f)
+        if is_prefect_environment:
+            _apply_prefect_lakefs_credentials(_cache, logger)
+        else:
+            logger.debug("Prefect environment flag disabled; skipping secret overrides.")
         _populate_constants(_cache)
         return _cache
 
@@ -84,14 +96,63 @@ def cfg(section: str, config_path: Path = CONFIG_PATH) -> dict:
     Raises:
         KeyError: If the section is not present in the config file.
     """
-    try:
-        logger = get_run_logger()
-    except MissingContextError:
-        logger = logging.getLogger(__name__)
-        logger.addHandler(logging.NullHandler())
-    logger.debug(f"Checking for config file at: {Path}")
+    logger = _get_logger()
+    logger.debug(f"Checking for config file at: {config_path}")
 
     config = load_config(config_path)
     if section not in config:
         raise KeyError(f"Missing '{section}' section in config.yaml")
     return config[section]
+
+
+def _get_logger():
+    """Return an available logger for Prefect or local execution.
+
+    Returns:
+        logging.Logger: Prefect run logger when available, otherwise a module logger.
+    """
+    try:
+        return get_run_logger()
+    except MissingContextError:
+        logger = logging.getLogger(__name__)
+        logger.addHandler(logging.NullHandler())
+        return logger
+
+
+def _apply_prefect_lakefs_credentials(config: Dict, logger) -> None:
+    """Override LakeFS credentials with Prefect secrets when running in Prefect.
+
+    Args:
+        config: Loaded configuration dictionary to mutate.
+        logger: Logger for informational messages.
+    """
+    try:
+        get_run_context()
+    except MissingContextError:
+        logger.debug("Prefect context unavailable; skipping Prefect secret overrides.")
+        return
+
+    credentials = _load_credentials_from_prefect("lakefs", logger)
+    if credentials:
+        existing = config.get("lakefs") or {}
+        updated = {**existing, **credentials}
+        config["lakefs"] = updated
+
+
+def _load_credentials_from_prefect(name: str, logger) -> Optional[Dict[str, str]]:
+    """Attempt to read credentials from Prefect secret blocks.
+
+    Args:
+        name: Base name for Prefect secret blocks.
+        logger: Logger for status updates.
+
+    Returns:
+        dict | None: Credential mapping if retrieved; otherwise None.
+    """
+    try:
+        user = Secret.load(f"{name}-user").get()
+        password = Secret.load(f"{name}-password").get()
+        return {"user": user, "password": password}
+    except Exception:
+        logger.debug(f"Could not read {name} credentials from Prefect.")
+        return None
