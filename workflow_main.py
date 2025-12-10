@@ -54,8 +54,9 @@ def start_update_embedding_workflow():
 if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
-    if not logging.getLogger().handlers:
-        logging.basicConfig(level=logging.INFO)
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        logger.addHandler(logging.StreamHandler())
 
     # Check whether we are running in a Prefect environment
     try:

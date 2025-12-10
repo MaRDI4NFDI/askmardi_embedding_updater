@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -15,13 +16,13 @@ is_prefect_environment: bool = True
 
 
 def load_config(config_path: Path = CONFIG_PATH):
-    """Load configuration and apply Prefect secret overrides when available.
+    """Load configuration and apply Prefect and environment overrides when available.
 
     Args:
         config_path: Optional path to the config file.
 
     Returns:
-        dict: Parsed configuration data with Prefect overrides applied.
+        dict: Parsed configuration data with Prefect and environment overrides applied.
 
     Raises:
         FileNotFoundError: If the expected config file does not exist.
@@ -31,6 +32,7 @@ def load_config(config_path: Path = CONFIG_PATH):
     if _cache is not None:
         if is_prefect_environment:
             _apply_prefect_lakefs_credentials(_cache, logger)
+        _apply_env_lakefs_credentials(_cache, logger)
         return _cache
 
     if not config_path.exists():
@@ -41,7 +43,8 @@ def load_config(config_path: Path = CONFIG_PATH):
         if is_prefect_environment:
             _apply_prefect_lakefs_credentials(_cache, logger)
         else:
-            logger.debug("Prefect environment flag disabled; skipping secret overrides.")
+            logger.debug("Prefect environment not found; skipping overrides from lakeFS secrets.")
+        _apply_env_lakefs_credentials(_cache, logger)
         _populate_constants(_cache)
         return _cache
 
@@ -156,3 +159,30 @@ def _load_credentials_from_prefect(name: str, logger) -> Optional[Dict[str, str]
     except Exception:
         logger.debug(f"Could not read {name} credentials from Prefect.")
         return None
+
+
+def _apply_env_lakefs_credentials(config: Dict, logger) -> None:
+    """Override LakeFS credentials using environment variables when provided.
+
+    Args:
+        config: Loaded configuration dictionary to mutate.
+        logger: Logger for informational messages.
+    """
+    env_user = os.environ.get("LAKEFS_USER")
+    env_password = os.environ.get("LAKEFS_PASSWORD")
+
+    if not env_user and not env_password:
+        logger.debug("No LakeFS environment credentials found; skipping overrides.")
+        return
+
+    existing = config.get("lakefs") or {}
+    updated = {**existing}
+
+    if env_user:
+        updated["user"] = env_user
+        logger.info("LakeFS user loaded from environment variable LAKEFS_USER.")
+    if env_password:
+        updated["password"] = env_password
+        logger.info("LakeFS password loaded from environment variable LAKEFS_PASSWORD.")
+
+    config["lakefs"] = updated
