@@ -1,3 +1,8 @@
+# Run parameters
+run_params:
+  update_embeddings_loop_iterations: 1
+  update_embeddings_embeddings_per_loop: 10
+
 # LakeFS settings
 lakefs:
   url: "https://lake-bioinfmed.zib.de/"

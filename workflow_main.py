@@ -1,7 +1,7 @@
 from pathlib import Path
-from prefect import flow
+from prefect import flow, get_run_logger
 
-from helper.config import CONFIG_PATH, check_for_config
+from helper.config import CONFIG_PATH, check_for_config, cfg
 from helper.constants import STATE_DB_PATH
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
@@ -16,6 +16,12 @@ def start_update_embedding_workflow():
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
     """
+    logger = get_run_logger()
+
+    run_settings = cfg("run_params")
+    update_embeddings_loop_iterations = run_settings.get("update_embeddings_loop_iterations", 1)
+    update_embeddings_embeddings_per_loop = run_settings.get("update_embeddings_embeddings_per_loop", 10)
+
     db_path: str = str(STATE_DB_PATH)
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -25,8 +31,20 @@ def start_update_embedding_workflow():
         init_db_task()
     update_software_item_index_from_mardi()
     update_file_index_from_lakefs()
-    update_embeddings(max_number_of_pdfs=2)
-    push_state_db_to_lakefs()
+
+    for iteration in range(update_embeddings_loop_iterations):
+
+        update_embeddings(max_number_of_pdfs=update_embeddings_embeddings_per_loop)
+        push_state_db_to_lakefs()
+
+        completed = iteration + 1
+        remaining = update_embeddings_loop_iterations - completed
+        logger.info(
+            "Completed iteration %s/%s; %s remaining",
+            completed,
+            update_embeddings_loop_iterations,
+            remaining,
+        )
 
 
 if __name__ == "__main__":
