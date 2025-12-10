@@ -199,4 +199,4 @@ def _apply_env_qdrant_config(config: Dict, logger) -> None:
     existing = config.get("qdrant") or {}
     updated = {**existing, "url": env_qdrant_url}
     config["qdrant"] = updated
-    logger.info("Qdrant URL loaded from environment variable QDRANT_URL.")
+    logger.debug("Qdrant URL loaded from environment variable QDRANT_URL.")
