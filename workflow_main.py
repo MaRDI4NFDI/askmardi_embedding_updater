@@ -1,6 +1,10 @@
+import logging
 from pathlib import Path
 from prefect import flow, get_run_logger
+from prefect.context import get_run_context
+from prefect.exceptions import MissingContextError
 
+from helper import config as config_helper
 from helper.config import CONFIG_PATH, check_for_config, cfg
 from helper.constants import STATE_DB_PATH
 from tasks.state_pull import pull_state_db_from_lakefs
@@ -48,6 +52,20 @@ def start_update_embedding_workflow():
 
 
 if __name__ == "__main__":
+
+    logger = logging.getLogger(__name__)
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO)
+
+    # Check whether we are running in a Prefect environment
+    try:
+        get_run_context()
+    except MissingContextError:
+        config_helper.is_prefect_environment = False
+        logger.info("Prefect environment not detected; running without Prefect context.")
+    else:
+        logger.info("Prefect environment detected; Prefect context available.")
+
     if check_for_config():
         start_update_embedding_workflow()
     else:
