@@ -35,6 +35,7 @@ docker build -f docker/Dockerfile -t ghcr.io/mardi4nfdi/askmardi_embedding_updat
 docker run --rm \
   -e LAKEFS_USER=your-user \
   -e LAKEFS_PASSWORD=your-pass \
-  ghcr.io/mardi4nfdi/askmardi_embedding_updater:latest
+  -e QDRANT_URL=https://your-qdrant.example.com:6333 \
+  ghcr.io/mardi4nfdi/askmardi_embedding_updater:dev
 ```
 

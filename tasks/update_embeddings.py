@@ -176,9 +176,11 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         distance=qdrant_cfg.get("distance", "COSINE"),
     )
 
+    url = qdrant_cfg.get("url", "http://localhost:6333")
+
     if not qdrant_manager.is_available():
-        logger.error("Qdrant server is unreachable with the current configuration.")
-        raise RuntimeError("Qdrant server is not reachable.")
+        logger.error(f"Qdrant server is unreachable @: {url}")
+        raise RuntimeError(f"Qdrant server is unreachable @: {url}")
 
     # First get an overview
     get_software_items_with_pdf_component.fn(db_path=db_path)

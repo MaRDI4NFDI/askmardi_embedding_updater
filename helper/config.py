@@ -32,7 +32,7 @@ def load_config(config_path: Path = CONFIG_PATH):
     if _cache is not None:
         if is_prefect_environment:
             _apply_prefect_lakefs_credentials(_cache, logger)
-        _apply_env_lakefs_credentials(_cache, logger)
+        _apply_env_overrides(_cache, logger)
         return _cache
 
     if not config_path.exists():
@@ -44,7 +44,7 @@ def load_config(config_path: Path = CONFIG_PATH):
             _apply_prefect_lakefs_credentials(_cache, logger)
         else:
             logger.debug("Prefect environment not found; skipping overrides from lakeFS secrets.")
-        _apply_env_lakefs_credentials(_cache, logger)
+        _apply_env_overrides(_cache, logger)
         _populate_constants(_cache)
         return _cache
 
@@ -161,13 +161,14 @@ def _load_credentials_from_prefect(name: str, logger) -> Optional[Dict[str, str]
         return None
 
 
-def _apply_env_lakefs_credentials(config: Dict, logger) -> None:
-    """Override LakeFS credentials using environment variables when provided.
+def _apply_env_overrides(config: Dict, logger) -> None:
+    """Override config values using environment variables when provided."""
+    _apply_env_lakefs_credentials(config, logger)
+    _apply_env_qdrant_config(config, logger)
 
-    Args:
-        config: Loaded configuration dictionary to mutate.
-        logger: Logger for informational messages.
-    """
+
+def _apply_env_lakefs_credentials(config: Dict, logger) -> None:
+    """Override LakeFS credentials using environment variables when provided."""
     env_user = os.environ.get("LAKEFS_USER")
     env_password = os.environ.get("LAKEFS_PASSWORD")
 
@@ -186,3 +187,16 @@ def _apply_env_lakefs_credentials(config: Dict, logger) -> None:
         logger.info("LakeFS password loaded from environment variable LAKEFS_PASSWORD.")
 
     config["lakefs"] = updated
+
+
+def _apply_env_qdrant_config(config: Dict, logger) -> None:
+    """Override Qdrant configuration using environment variables when provided."""
+    env_qdrant_url = os.environ.get("QDRANT_URL")
+    if not env_qdrant_url:
+        logger.debug("No Qdrant environment URL found; skipping override.")
+        return
+
+    existing = config.get("qdrant") or {}
+    updated = {**existing, "url": env_qdrant_url}
+    config["qdrant"] = updated
+    logger.info("Qdrant URL loaded from environment variable QDRANT_URL.")
