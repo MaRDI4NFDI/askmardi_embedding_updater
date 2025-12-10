@@ -96,7 +96,7 @@ def perform_pdf_indexing(
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
             tmp_path = tmp_file.name
             try:
-                logger.info(f"Downloading PDF for {qid} from {component}")
+                logger.debug(f"Downloading PDF for {qid} from {component}")
                 download_file(key=component, dest_path=tmp_path)
             except Exception as exc:
                 logger.warning(f"Failed to download {component} for {qid}: {exc}")
@@ -136,7 +136,7 @@ def perform_pdf_indexing(
             )
             conn.commit()
             processed += 1
-            logger.info(f"Embedded and indexed {qid} ({component})")
+            logger.debug(f"Embedded and indexed {qid} ({component})")
 
             if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
                 logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
