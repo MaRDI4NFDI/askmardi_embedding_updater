@@ -30,4 +30,8 @@ if __name__ == "__main__":
                 "QDRANT_URL": "http://qdrant:6333",
             },
         },
+        parameters={
+            "update_embeddings_loop_iterations": 10,
+            "update_embeddings_embeddings_per_loop": 50,
+        },
     )

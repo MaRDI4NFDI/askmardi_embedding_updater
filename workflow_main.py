@@ -17,15 +17,17 @@ from tasks.state_push import push_state_db_to_lakefs
 
 
 @flow(name="start_update_embedding_workflow")
-def start_update_embedding_workflow():
+def start_update_embedding_workflow(
+        update_embeddings_loop_iterations: int = 1,
+        update_embeddings_embeddings_per_loop: int = 10,
+):
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
     """
     logger = get_run_logger()
 
-    run_settings = cfg("run_params")
-    update_embeddings_loop_iterations = run_settings.get("update_embeddings_loop_iterations", 1)
-    update_embeddings_embeddings_per_loop = run_settings.get("update_embeddings_embeddings_per_loop", 10)
+    logger.info(f"Running with: iterations={update_embeddings_loop_iterations}, "
+                f"per_loop={update_embeddings_embeddings_per_loop}")
 
     db_path: str = str(STATE_DB_PATH)
 
