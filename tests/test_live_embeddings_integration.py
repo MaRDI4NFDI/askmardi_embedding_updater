@@ -73,10 +73,10 @@ def test_live_rag_chain_with_qdrant():
     except Exception:
         pytest.skip("Qdrant not reachable; skipping live RAG test")
 
-    llm_cfg = cfg("llm")
-    llm_host = llm_cfg.get("host")
-    llm_model = llm_cfg.get("model_name")
-    llm_api_key = llm_cfg.get("api_key")
+    ollama_cfg = cfg("ollama")
+    llm_host = ollama_cfg.get("host")
+    llm_model = ollama_cfg.get("model_name")
+    llm_api_key = ollama_cfg.get("api_key")
 
     print(
         "[Live RAG] LLM config: "
@@ -155,9 +155,9 @@ def test_live_rag_chain_with_qdrant():
 
 @pytest.mark.integration
 def test_llm_health_check_runs():
-    llm_cfg = cfg("llm")
-    llm_host = llm_cfg.get("host")
-    llm_api_key = llm_cfg.get("api_key")
+    ollama_cfg = cfg("ollama")
+    llm_host = ollama_cfg.get("host")
+    llm_api_key = ollama_cfg.get("api_key")
 
     if not llm_host or not llm_api_key:
         pytest.skip("LLM configuration incomplete; skipping health check test")

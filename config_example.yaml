@@ -38,7 +38,8 @@ embedding:
   batch_size: 4
   device: "cpu"                    # "cuda" if GPU available
 
-llm:
+# Ollama
+ollama:
   # Base URL for an OpenAI-compatible endpoint
   host: "https://ollama.zib.de/api"
   model_name: "gemma3:27b"
