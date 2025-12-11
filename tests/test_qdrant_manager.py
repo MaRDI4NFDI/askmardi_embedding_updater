@@ -1,6 +1,6 @@
 from langchain_core.documents import Document
 
-from helper_embedder import qdrant_manager
+from helper import qdrant_manager
 
 
 class DummyCollectionInfo:

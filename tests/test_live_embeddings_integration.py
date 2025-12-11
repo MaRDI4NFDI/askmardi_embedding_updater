@@ -4,7 +4,7 @@ from typing import Any, List
 import pytest
 
 from helper.config import cfg
-from helper_embedder.embedder_tools import EmbedderTools
+from helper.embedder_tools import EmbedderTools
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough

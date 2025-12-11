@@ -8,8 +8,8 @@ from prefect import task, get_run_logger
 from helper.config import cfg
 from helper.constants import STATE_DB_PATH
 from helper.lakefs import download_file
-from helper_embedder.embedder_tools import EmbedderTools
-from helper_embedder.qdrant_manager import QdrantManager
+from helper.embedder_tools import EmbedderTools
+from helper.qdrant_manager import QdrantManager
 from tasks.init_db_task import get_connection
 
 

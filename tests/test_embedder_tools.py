@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from langchain_core.documents import Document
 
-from helper_embedder import embedder_tools
+from helper import embedder_tools
 
 
 def test_embedder_tools_embed_text_returns_vector(monkeypatch):
