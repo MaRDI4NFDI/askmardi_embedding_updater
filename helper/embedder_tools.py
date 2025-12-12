@@ -1,3 +1,4 @@
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import List
@@ -6,7 +7,15 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_huggingface import HuggingFaceEmbeddings
+from prefect import get_run_logger
+from prefect.exceptions import MissingContextError
 
+
+def _get_logger():
+    try:
+        return get_run_logger()
+    except MissingContextError:
+        return logging.getLogger(__name__)
 
 class EmbedderTools:
     """Utilities for loading documents and generating semantic embeddings."""
@@ -69,6 +78,20 @@ class EmbedderTools:
         Raises:
             TimeoutError: If semantic chunking exceeds the allotted time.
         """
+        logger = _get_logger()
+
+        total_docs = len(documents)
+        total_chars = sum(len(doc.page_content) for doc in documents)
+
+        logger.info(
+            "Starting semantic chunking: %d documents, total_chars=%d, "
+            "min_length=%d, timeout=%ds",
+            total_docs,
+            total_chars,
+            min_length,
+            timeout_seconds,
+        )
+
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(self.chunker.split_documents, documents)
             try:

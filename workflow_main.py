@@ -26,6 +26,7 @@ def start_update_embedding_workflow(
     """
     logger = get_run_logger()
 
+    logger.debug("This is a debug message.")
     logger.info(f"Running with: iterations={update_embeddings_loop_iterations}, "
                 f"per_loop={update_embeddings_embeddings_per_loop}")
 
