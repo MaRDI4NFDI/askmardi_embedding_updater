@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import List
 
 from langchain_community.document_loaders import PyPDFLoader
@@ -51,18 +52,32 @@ class EmbedderTools:
         loader = PyPDFLoader(file_path)
         return loader.load()
 
-    def split_and_filter(self, documents: List[Document], min_length: int = 250) -> List[Document]:
+    def split_and_filter(
+        self, documents: List[Document], min_length: int = 250, timeout_seconds: int = 300
+    ) -> List[Document]:
         """
-        Create semantic chunks and discard segments shorter than the threshold.
+        Create semantic chunks with a timeout and discard short segments.
 
         Args:
             documents: Source documents to split.
             min_length: Minimum allowed character length for a chunk.
+            timeout_seconds: Maximum time allowed for semantic chunking.
 
         Returns:
             List[Document]: Filtered semantic chunks.
+
+        Raises:
+            TimeoutError: If semantic chunking exceeds the allotted time.
         """
-        chunks = self.chunker.split_documents(documents)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(self.chunker.split_documents, documents)
+            try:
+                chunks = future.result(timeout=timeout_seconds)
+            except FuturesTimeoutError as exc:
+                future.cancel()
+                raise TimeoutError(
+                    f"Semantic chunking timed out after {timeout_seconds}s"
+                ) from exc
         return [chunk for chunk in chunks if len(chunk.page_content) > min_length]
 
     def embed_text(self, text: str) -> List[float]:

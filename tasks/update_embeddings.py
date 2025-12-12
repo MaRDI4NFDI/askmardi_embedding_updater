@@ -120,7 +120,9 @@ def perform_pdf_indexing(
                     continue
 
             try:
-                logger.debug("Embedding PDF ...")
+                timeout = 60
+
+                logger.info(f"Embedding PDF with a timeout of {timeout}s...")
 
                 documents = embedder.load_pdf_file(tmp_path)
                 for doc in documents:
@@ -130,7 +132,8 @@ def perform_pdf_indexing(
                         "source": "CRAN"
                     })
 
-                chunks = embedder.split_and_filter(documents)
+                # Run the embedder with a timeout of 60 seconds
+                chunks = embedder.split_and_filter(documents=documents, timeout_seconds=timeout)
                 for chunk in chunks:
                     chunk.metadata.update({"qid": qid, "component": component})
 
