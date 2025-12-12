@@ -61,6 +61,9 @@ def perform_pdf_indexing(
         db_path: Path to the workflow's SQLite state database.
         qdrant_manager: Qdrant client wrapper to persist embeddings. If None, a new instance is created from config.
         max_number_of_pdfs: Max number of documents to process
+
+    Raises:
+        RuntimeError: When three download timeouts occur within a single run.
     """
     logger = get_run_logger()
     conn = get_connection(db_path)
@@ -86,80 +89,90 @@ def perform_pdf_indexing(
     qdrant_manager.ensure_collection(vector_size=embedder.embedding_dimension)
 
     processed = 0
-    for qid, component in components:
+    timeout_failures = 0
 
-        cursor.execute(
-            "SELECT 1 FROM embeddings_index WHERE qid = ? AND component = ? LIMIT 1",
-            (qid, component),
-        )
-        if cursor.fetchone():
-            logger.debug(f"Skipping {qid} — already embedded")
-            continue
+    try:
+        for qid, component in components:
 
-        logger.info(f"Downloading and Embedding PDF {processed+1}/{max_number_of_pdfs}  for QID: {qid} ...")
-
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-            try:
-                logger.debug(f"Downloading PDF for {qid} from {component}")
-                download_file(key=component, dest_path=tmp_path)
-            except Exception as exc:
-                logger.warning(f"Failed to download {component} for {qid}: {exc}")
-                continue
-
-        try:
-            logger.debug("Embedding PDF ...")
-
-            documents = embedder.load_pdf_file(tmp_path)
-            for doc in documents:
-                doc.metadata.update({
-                    "qid": qid,
-                    "component": component,
-                    "source": "CRAN"
-                })
-
-            chunks = embedder.split_and_filter(documents)
-            for chunk in chunks:
-                chunk.metadata.update({"qid": qid, "component": component})
-
-            if not chunks:
-                logger.warning(f"No valid chunks produced for {qid} ({component})")
-                continue
-
-            logger.debug("Writing embeddings to Qdrant db ...")
-
-            qdrant_manager.upload_documents(
-                documents=chunks,
-                embed_fn=embedder.embed_text,
-                id_prefix=qid,
-            )
-
-            timestamp = datetime.now(timezone.utc).isoformat()
             cursor.execute(
-                """
-                INSERT OR REPLACE INTO embeddings_index
-                    (qid, component, updated_at)
-                VALUES (?, ?, ?)
-                """,
-                (qid, component, timestamp),
+                "SELECT 1 FROM embeddings_index WHERE qid = ? AND component = ? LIMIT 1",
+                (qid, component),
             )
-            conn.commit()
-            processed += 1
-            logger.debug(f"Embedded and indexed {qid} ({component})")
+            if cursor.fetchone():
+                logger.debug(f"Skipping {qid} — already embedded")
+                continue
 
-            if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
-                logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
-                break
+            logger.info(f"Downloading and Embedding PDF {processed+1}/{max_number_of_pdfs}  for QID: {qid} ...")
 
-        except Exception as exc:
-            logger.warning(f"Embedding failed for {qid} ({component}): {exc}")
-        finally:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
+                tmp_path = tmp_file.name
+                try:
+                    logger.debug(f"Downloading PDF for {qid} from {component}")
+                    download_file(key=component, dest_path=tmp_path)
+                except Exception as exc:
+                    logger.warning(f"Failed to download {component} for {qid}: {exc}")
+                    if isinstance(exc, TimeoutError):
+                        timeout_failures += 1
+                        if timeout_failures >= 3:
+                            raise RuntimeError(
+                                f"Aborting embeddings after {timeout_failures} download timeouts"
+                            ) from exc
+                    continue
+
             try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
+                logger.debug("Embedding PDF ...")
 
-    conn.close()
+                documents = embedder.load_pdf_file(tmp_path)
+                for doc in documents:
+                    doc.metadata.update({
+                        "qid": qid,
+                        "component": component,
+                        "source": "CRAN"
+                    })
+
+                chunks = embedder.split_and_filter(documents)
+                for chunk in chunks:
+                    chunk.metadata.update({"qid": qid, "component": component})
+
+                if not chunks:
+                    logger.warning(f"No valid chunks produced for {qid} ({component})")
+                    continue
+
+                logger.debug("Writing embeddings to Qdrant db ...")
+
+                qdrant_manager.upload_documents(
+                    documents=chunks,
+                    embed_fn=embedder.embed_text,
+                    id_prefix=qid,
+                )
+
+                timestamp = datetime.now(timezone.utc).isoformat()
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO embeddings_index
+                        (qid, component, updated_at)
+                    VALUES (?, ?, ?)
+                    """,
+                    (qid, component, timestamp),
+                )
+                conn.commit()
+                processed += 1
+                logger.debug(f"Embedded and indexed {qid} ({component})")
+
+                if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
+                    logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
+                    break
+
+            except Exception as exc:
+                logger.warning(f"Embedding failed for {qid} ({component}): {exc}")
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+    finally:
+        conn.close()
+
     logger.info(f"PDF indexing finished; processed {processed} new items")
     return processed
 
