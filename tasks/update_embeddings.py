@@ -85,7 +85,7 @@ def perform_pdf_indexing(
             distance=qdrant_cfg.get("distance", "COSINE"),
         )
 
-    logger.debug(f"Checking for collection {qdrant_cfg.get("collection", "software_docs")}  - using {embedder.embedding_dimension} embedding dimensions ...")
+    logger.debug(f"Checking for collection ...")
     qdrant_manager.ensure_collection(vector_size=embedder.embedding_dimension)
 
     processed = 0
