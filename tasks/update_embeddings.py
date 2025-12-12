@@ -122,8 +122,6 @@ def perform_pdf_indexing(
             try:
                 timeout = 60
 
-                logger.info(f"Embedding PDF with a timeout of {timeout}s...")
-
                 documents = embedder.load_pdf_file(tmp_path)
                 for doc in documents:
                     doc.metadata.update({
@@ -133,6 +131,17 @@ def perform_pdf_indexing(
                     })
 
                 # Run the embedder with a timeout of 60 seconds
+
+                total_docs = len(documents)
+                total_chars = sum(len(doc.page_content) for doc in documents)
+
+                logger.info(
+                    "Starting embedding PDF: %d pages, total_chars=%d, "
+                    "timeout=%ds",
+                    total_docs,
+                    total_chars
+                )
+
                 chunks = embedder.split_and_filter(documents=documents, timeout_seconds=timeout)
                 for chunk in chunks:
                     chunk.metadata.update({"qid": qid, "component": component})

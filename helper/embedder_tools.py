@@ -78,20 +78,6 @@ class EmbedderTools:
         Raises:
             TimeoutError: If semantic chunking exceeds the allotted time.
         """
-        logger = _get_logger()
-
-        total_docs = len(documents)
-        total_chars = sum(len(doc.page_content) for doc in documents)
-
-        logger.info(
-            "Starting semantic chunking: %d documents, total_chars=%d, "
-            "min_length=%d, timeout=%ds",
-            total_docs,
-            total_chars,
-            min_length,
-            timeout_seconds,
-        )
-
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(self.chunker.split_documents, documents)
             try:
