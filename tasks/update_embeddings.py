@@ -71,6 +71,8 @@ def perform_pdf_indexing(
     model_name = embedding_cfg.get("model_name", "sentence-transformers/all-MiniLM-L6-v2")
     embedder = EmbedderTools(model_name=model_name)
 
+    logger.debug("Getting qdrant connection...")
+
     if qdrant_manager is None:
         qdrant_cfg = cfg("qdrant")
         qdrant_manager = QdrantManager(
@@ -80,6 +82,7 @@ def perform_pdf_indexing(
             distance=qdrant_cfg.get("distance", "COSINE"),
         )
 
+    logger.debug(f"Checking for collection {qdrant_cfg.get("collection", "software_docs")}  - using {embedder.embedding_dimension} embedding dimensions ...")
     qdrant_manager.ensure_collection(vector_size=embedder.embedding_dimension)
 
     processed = 0
