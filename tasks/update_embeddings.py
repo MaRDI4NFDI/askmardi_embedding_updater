@@ -99,7 +99,7 @@ def perform_pdf_indexing(
                 (qid, component),
             )
             if cursor.fetchone():
-                logger.debug(f"Skipping {qid} — already embedded")
+                # logger.debug(f"Skipping {qid} — already embedded")
                 continue
 
             logger.info(f"Downloading and Embedding PDF {processed+1}/{max_number_of_pdfs}  for QID: {qid} ...")

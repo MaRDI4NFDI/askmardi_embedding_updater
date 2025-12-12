@@ -135,11 +135,14 @@ def _apply_prefect_lakefs_credentials(config: Dict, logger) -> None:
         logger.debug("Prefect context unavailable; skipping Prefect secret overrides.")
         return
 
+    logger.debug("Prefect environment found; loading lakeFS credentials from secrets.")
+
     credentials = _load_credentials_from_prefect("lakefs", logger)
     if credentials:
         existing = config.get("lakefs") or {}
         updated = {**existing, **credentials}
         config["lakefs"] = updated
+        logger.debug("lakeFS set from prefect secrets.")
 
 
 def _load_credentials_from_prefect(name: str, logger) -> Optional[Dict[str, str]]:
