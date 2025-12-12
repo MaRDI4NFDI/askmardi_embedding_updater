@@ -34,7 +34,10 @@ class FakeEmbedder:
     def load_pdf_file(self, path):
         return [Document(page_content="test content", metadata={})]
 
-    def split_and_filter(self, docs, min_length=250):
+    def split_and_filter(self, documents=None, min_length=250, **kwargs):
+        docs = documents or []
+        if not docs:
+            return []
         return [Document(page_content="x" * 300, metadata=docs[0].metadata.copy())]
 
     def embed_text(self, text):
