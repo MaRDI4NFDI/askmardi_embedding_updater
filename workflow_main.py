@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 from pathlib import Path
 from prefect import flow, get_run_logger
 from prefect.context import get_run_context
@@ -14,6 +15,24 @@ from tasks.update_software_items import update_software_item_index_from_mardi
 from tasks.update_lakefs_file_index import update_file_index_from_lakefs
 from tasks.update_embeddings import update_embeddings, get_software_items_with_pdf_component
 from tasks.state_push import push_state_db_to_lakefs
+
+
+def _migrate_embeddings_status_column(db_path: str) -> None:
+    """
+    Ensure embeddings_index has a status column; backfill with 'ok' if missing.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        cursor = conn.execute("PRAGMA table_info(embeddings_index)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "status" in columns:
+            return
+
+        conn.execute("ALTER TABLE embeddings_index ADD COLUMN status TEXT")
+        conn.execute("UPDATE embeddings_index SET status = 'ok' WHERE status IS NULL")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 @flow(name="start_update_embedding_workflow")
@@ -37,6 +56,8 @@ def start_update_embedding_workflow(
     pulled = pull_state_db_from_lakefs()
     if not pulled:
         init_db_task()
+    else:
+        _migrate_embeddings_status_column(db_path)
     baseline_counts = snapshot_table_counts(db_path)
     update_software_item_index_from_mardi()
     update_file_index_from_lakefs()

@@ -95,11 +95,13 @@ def perform_pdf_indexing(
         for qid, component in components:
 
             cursor.execute(
-                "SELECT 1 FROM embeddings_index WHERE qid = ? AND component = ? LIMIT 1",
+                "SELECT status FROM embeddings_index WHERE qid = ? AND component = ? LIMIT 1",
                 (qid, component),
             )
-            if cursor.fetchone():
-                # logger.debug(f"Skipping {qid} — already embedded")
+            row = cursor.fetchone()
+            if row:
+                # Already attempted; skip both successful and failed entries.
+                logger.debug(f"Skipping {qid} — already attempted (status={row[0]})")
                 continue
 
             logger.info(f"Downloading and Embedding PDF {processed+1}/{max_number_of_pdfs}  for QID: {qid} ...")
@@ -149,6 +151,16 @@ def perform_pdf_indexing(
 
                 if not chunks:
                     logger.warning(f"No valid chunks produced for {qid} ({component})")
+                    timestamp = datetime.now(timezone.utc).isoformat()
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO embeddings_index
+                            (qid, component, updated_at, status)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (qid, component, timestamp, "failed"),
+                    )
+                    conn.commit()
                     processed += 1
                     if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
                         logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
@@ -167,10 +179,10 @@ def perform_pdf_indexing(
                 cursor.execute(
                     """
                     INSERT OR REPLACE INTO embeddings_index
-                        (qid, component, updated_at)
-                    VALUES (?, ?, ?)
+                        (qid, component, updated_at, status)
+                    VALUES (?, ?, ?, ?)
                     """,
-                    (qid, component, timestamp),
+                    (qid, component, timestamp, "ok"),
                 )
                 conn.commit()
                 processed += 1
@@ -182,6 +194,16 @@ def perform_pdf_indexing(
 
             except Exception as exc:
                 logger.warning(f"Embedding failed for {qid} ({component}): {exc}")
+                timestamp = datetime.now(timezone.utc).isoformat()
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO embeddings_index
+                        (qid, component, updated_at, status)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (qid, component, timestamp, "failed"),
+                )
+                conn.commit()
                 processed += 1
                 if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
                     logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")

@@ -95,11 +95,11 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     )
 
     conn = sqlite3.connect(str(temp_db))
-    rows = conn.execute("SELECT qid, component FROM embeddings_index").fetchall()
+    rows = conn.execute("SELECT qid, component, status FROM embeddings_index").fetchall()
     conn.close()
 
     assert processed == 1
-    assert rows == [("Q1", "path/to/file.pdf")]
+    assert rows == [("Q1", "path/to/file.pdf", "ok")]
     assert fake_qdrant.uploaded, "Vectors should be uploaded to Qdrant"
 
 

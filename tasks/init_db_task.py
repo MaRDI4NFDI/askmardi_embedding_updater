@@ -40,6 +40,7 @@ SCHEMA_QUERIES = [
         qid TEXT,
         component TEXT,
         updated_at TEXT,
+        status TEXT DEFAULT 'ok',
         PRIMARY KEY (qid, component)
     );
     """
@@ -74,3 +75,4 @@ def get_connection(db_path: str = str(STATE_DB_PATH)) -> sqlite3.Connection:
         sqlite3.Connection: Active connection to the DB.
     """
     return sqlite3.connect(db_path)
+
