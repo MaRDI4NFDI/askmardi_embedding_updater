@@ -130,19 +130,20 @@ def perform_pdf_indexing(
                         "source": "CRAN"
                     })
 
-                # Run the embedder with a timeout of 60 seconds
-
+                # Diagnostics before chunking
                 total_docs = len(documents)
                 total_chars = sum(len(doc.page_content) for doc in documents)
-
-                logger.info(
-                    "Starting embedding PDF: %d pages, total_chars=%d, "
-                    "timeout=%ds",
+                logger.debug(
+                    "Starting semantic chunking: %d pages, total_chars=%d, min_length=%d, timeout=%ds",
                     total_docs,
-                    total_chars
+                    total_chars,
+                    250,
+                    timeout,
                 )
 
+                start_embed = datetime.now(timezone.utc)
                 chunks = embedder.split_and_filter(documents=documents, timeout_seconds=timeout)
+                elapsed_embed = (datetime.now(timezone.utc) - start_embed).total_seconds()
                 for chunk in chunks:
                     chunk.metadata.update({"qid": qid, "component": component})
 
@@ -169,7 +170,7 @@ def perform_pdf_indexing(
                 )
                 conn.commit()
                 processed += 1
-                logger.debug(f"Embedded and indexed {qid} ({component})")
+                logger.debug(f"Embedded and indexed {qid} ({component}) in {elapsed_embed:.2f}s")
 
                 if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
                     logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
