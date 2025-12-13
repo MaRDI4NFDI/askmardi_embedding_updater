@@ -101,7 +101,7 @@ def perform_pdf_indexing(
             row = cursor.fetchone()
             if row:
                 # Already attempted; skip both successful and failed entries.
-                logger.debug(f"Skipping {qid} — already attempted (status={row[0]})")
+                # logger.debug(f"Skipping {qid} — already attempted (status={row[0]})")
                 continue
 
             logger.info(f"Downloading and Embedding PDF {processed+1}/{max_number_of_pdfs}  for QID: {qid} ...")
