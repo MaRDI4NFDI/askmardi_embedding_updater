@@ -149,6 +149,10 @@ def perform_pdf_indexing(
 
                 if not chunks:
                     logger.warning(f"No valid chunks produced for {qid} ({component})")
+                    processed += 1
+                    if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
+                        logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
+                        break
                     continue
 
                 logger.debug("Writing embeddings to Qdrant db ...")
@@ -178,6 +182,10 @@ def perform_pdf_indexing(
 
             except Exception as exc:
                 logger.warning(f"Embedding failed for {qid} ({component}): {exc}")
+                processed += 1
+                if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
+                    logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")
+                    break
             finally:
                 try:
                     os.remove(tmp_path)
