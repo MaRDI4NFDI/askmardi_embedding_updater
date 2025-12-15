@@ -7,9 +7,10 @@ from prefect import task, get_run_logger
 
 from tasks.init_db_task import get_connection
 from helper.config import cfg
-from helper.constants import SOFTWARE_PROFILE_QID
-from helper.constants import MARDI_PROFILE_TYPE_PID
-from helper.constants import STATE_DB_PATH
+
+_mardi_cfg = cfg("mardi_kg")
+SOFTWARE_PROFILE_QID = _mardi_cfg.get("mardi_software_profile_qid")
+MARDI_PROFILE_TYPE_PID = _mardi_cfg.get("mardi_profile_type_pid")
 
 
 def build_query(offset: int, limit: Optional[int]) -> str:
@@ -81,13 +82,9 @@ def run_query(endpoint: str, query: str, logger, max_retries: int, timeout: int=
 
 @task(name="update_software_items")
 def update_software_item_index_from_mardi(
-    db_path: str = str(STATE_DB_PATH),
 ) -> List[str]:
     """
     Refresh the software_index table with QIDs retrieved from Wikibase.
-
-    Args:
-        db_path: Path to the workflow's SQLite state database.
 
     Returns:
         list[str]: All QIDs fetched during this run.
@@ -107,7 +104,7 @@ def update_software_item_index_from_mardi(
 
     logger.info(f"Updating software_index table from Wikibase (timeout:{timeout})")
 
-    conn = get_connection(db_path)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("SELECT COUNT(*) FROM software_index")

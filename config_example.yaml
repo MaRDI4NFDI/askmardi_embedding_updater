@@ -1,12 +1,13 @@
 # LakeFS settings
 lakefs:
   url: "https://lake-bioinfmed.zib.de/"
-  state_repo: "mardi-workflows-files"
-  state_repo_directory: "askmardi_embedding_update"
-  data_repo: "mardi-fdo-data"
-  branch: "main"
   user: 'MYUSER'
   password: 'MYPASSWORD'
+  branch: "main"
+  state_repo: "mardi-workflows-files"
+  state_repo_directory: "askmardi_embedding_update"
+  state_db_filename_prefix: "askmardi_embedding_updater__state"
+  data_repo: "mardi-fdo-data"
 
 # MaRDI KG settings
 mardi_kg:
@@ -22,7 +23,7 @@ doip:
 # Qdrant storage
 qdrant:
   url: "http://localhost:6333"
-  collection: "software_docs"
+  collection: "mardi_embeddings_v1"
   vector_size: 768                 # example dimension
   distance: "Cosine"
   api_key: ""                      # if required

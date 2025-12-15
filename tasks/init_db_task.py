@@ -2,20 +2,18 @@ from prefect import task, get_run_logger
 import sqlite3
 from pathlib import Path
 
-from helper.constants import STATE_DB_PATH
+from helper.config import get_local_state_db_path
 
 
 @task(name="init_database")
-def init_db_task(db_path: str = str(STATE_DB_PATH)) -> None:
+def init_db_task() -> None:
     """
     Ensure the SQLite database exists and required tables are present.
-
-    Args:
-        db_path: Filesystem path to the SQLite DB file.
     """
     logger = get_run_logger()
-    logger.info(f"Initializing SQLite database at: {db_path}")
-    _init_db(db_path)
+    resolved_path = str(get_local_state_db_path())
+    logger.info(f"Initializing SQLite database at: {resolved_path}")
+    _init_db()
     logger.info("Database initialized (or already existed)")
 
 
@@ -46,15 +44,13 @@ SCHEMA_QUERIES = [
 ]
 
 
-def _init_db(db_path: str = str(STATE_DB_PATH)) -> None:
+def _init_db() -> None:
     """
     Create the SQLite database directory and apply schema migrations.
-
-    Args:
-        db_path: Filesystem path to the SQLite DB file.
     """
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    resolved_path = str(get_local_state_db_path())
+    Path(resolved_path).parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(resolved_path)
     try:
         for query in SCHEMA_QUERIES:
             conn.execute(query)
@@ -63,14 +59,12 @@ def _init_db(db_path: str = str(STATE_DB_PATH)) -> None:
         conn.close()
 
 
-def get_connection(db_path: str = str(STATE_DB_PATH)) -> sqlite3.Connection:
+def get_connection() -> sqlite3.Connection:
     """
     Open a SQLite connection to the workflow state database.
-
-    Args:
-        db_path: Filesystem path to the SQLite DB file.
 
     Returns:
         sqlite3.Connection: Active connection to the DB.
     """
-    return sqlite3.connect(db_path)
+    resolved_path = str(get_local_state_db_path())
+    return sqlite3.connect(resolved_path)

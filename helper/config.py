@@ -50,23 +50,40 @@ def load_config(config_path: Path = CONFIG_PATH):
 
 
 def _populate_constants(config: Dict) -> None:
-    """Fill constant placeholders with values from the loaded config.
+    """Constants are initialized directly in helper.constants at import time."""
+    return
 
-    Args:
-        config: Parsed configuration dictionary.
+
+def get_local_state_db_path() -> Path:
     """
-    # Local import to avoid circular dependency at module import time.
-    from helper import constants
+    Resolve the local path for the state database using config.yaml.
 
-    if constants.SOFTWARE_PROFILE_QID is None:
-        constants.SOFTWARE_PROFILE_QID = config["mardi_kg"].get(
-            "mardi_software_profile_qid"
-        )
+    Returns:
+        Path: Local filesystem path for the state DB.
 
-    if constants.MARDI_PROFILE_TYPE_PID is None:
-        constants.MARDI_PROFILE_TYPE_PID = config["mardi_kg"].get(
-            "mardi_profile_type_pid"
-        )
+    Raises:
+        KeyError: If the required lakefs.state_db_filename is missing.
+    """
+    config = load_config()
+    lakefs_cfg = config.get("lakefs", {})
+    prefix = lakefs_cfg.get("state_db_filename_prefix")
+    if not prefix:
+        raise KeyError("Missing 'state_db_filename_prefix' in lakefs configuration (config.yaml -> lakefs.state_db_filename_prefix)")
+    collection = config.get("qdrant", {}).get("collection")
+    if not collection:
+        raise KeyError("Missing 'collection' in qdrant configuration (config.yaml -> qdrant.collection)")
+    db_filename = f"{prefix}__{collection}.db"
+    return Path("state") / db_filename
+
+
+def get_state_db_filename() -> str:
+    """
+    Resolve the filename for the state database using config.yaml.
+
+    Returns:
+        str: State DB filename from config.
+    """
+    return get_local_state_db_path().name
 
 
 def check_for_config() -> bool:

@@ -4,30 +4,53 @@ from datetime import datetime, timezone
 from typing import List, Tuple
 
 from prefect import task, get_run_logger
+from qdrant_client.embed import embedder
 
 from helper.config import cfg
-from helper.constants import STATE_DB_PATH
+from helper.constants import DOCUMENT_TYPE_OTHER, DOCUMENT_TYPE_CRAN
 from helper.lakefs import download_file
 from helper.embedder_tools import EmbedderTools
 from helper.qdrant_manager import QdrantManager
 from tasks.init_db_task import get_connection
 
 
+def _extract_package_version(component: str, title: str | None = None) -> Tuple[str, str]:
+    """
+    Derive CRAN package name and version from the component filename.
+
+    Args:
+        component: LakeFS object key for the PDF.
+        title: Optional PDF title metadata to parse for package name.
+
+    Returns:
+        Tuple[str, str]: (package, version) with fallbacks when parsing fails.
+    """
+    filename = os.path.basename(component)
+    stem, _ = os.path.splitext(filename)
+    # CRAN docs are typically named like `{package}_{version}.pdf`. Only accept that pattern;
+    # otherwise fall back to unknown rather than guessing from the path.
+    if "_" in stem:
+        candidate_pkg, candidate_ver = stem.rsplit("_", 1)
+        if candidate_pkg and candidate_ver and candidate_ver[0].isdigit():
+            return candidate_pkg, candidate_ver
+    # Attempt to extract package name from PDF title if available: e.g., "pkgname: Description"
+    if title and ":" in title:
+        possible_pkg = title.split(":", 1)[0].strip()
+        if possible_pkg:
+            return possible_pkg, "unknown"
+    return "unknown", "unknown"
+
+
 @task(name="log_qids_with_components")
-def get_software_items_with_pdf_component(
-    db_path: str = str(STATE_DB_PATH),
-) -> int:
+def get_software_items_with_pdf_component() -> int:
     """
     Log the overlap between software_index and component_index.
 
     Prints the first 5 QIDs that exist in component_index among those listed
     in software_index, and returns the total overlap count.
-
-    Args:
-        db_path: Path to the workflow's SQLite state database.
     """
     logger = get_run_logger()
-    conn = get_connection(db_path)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -49,27 +72,30 @@ def get_software_items_with_pdf_component(
 
 def perform_pdf_indexing(
     components: List[Tuple[str, str]],
-    db_path: str,
     qdrant_manager: QdrantManager | None = None,
     max_number_of_pdfs: int | None = None,
+    document_type: str = DOCUMENT_TYPE_OTHER,
+    embedder: EmbedderTools | None = None,
 ) -> int:
     """
     Build embeddings for component PDFs and push them to Qdrant.
 
     Args:
         components: Iterable of (qid, component) rows from the DB.
-        db_path: Path to the workflow's SQLite state database.
         qdrant_manager: Qdrant client wrapper to persist embeddings. If None, a new instance is created from config.
         max_number_of_pdfs: Max number of documents to process
+        document_type: Label for the document type to store in metadata.
+        embedder: Optional shared EmbedderTools instance; if None, a new one is created.
     """
     logger = get_run_logger()
-    conn = get_connection(db_path)
+    conn = get_connection()
     cursor = conn.cursor()
 
     embedding_cfg = cfg("embedding")
 
-    model_name = embedding_cfg.get("model_name", "sentence-transformers/all-MiniLM-L6-v2")
-    embedder = EmbedderTools(model_name=model_name)
+    if embedder is None:
+        model_name = embedding_cfg.get("model_name", "sentence-transformers/all-MiniLM-L6-v2")
+        embedder = EmbedderTools(model_name=model_name)
 
     if qdrant_manager is None:
         qdrant_cfg = cfg("qdrant")
@@ -108,16 +134,24 @@ def perform_pdf_indexing(
             logger.debug("Embedding PDF ...")
 
             documents = embedder.load_pdf_file(tmp_path)
+            first_title = documents[0].metadata.get("title") if documents else None
+            package, version = _extract_package_version(component, title=first_title)
+            base_metadata = {
+                "qid": qid,
+                "source": "CRAN",
+                "package": package,
+                "version": version,
+                "document_type": document_type,
+                "page": None,
+            }
             for doc in documents:
-                doc.metadata.update({
-                    "qid": qid,
-                    "component": component,
-                    "source": "CRAN"
-                })
+                page_number = doc.metadata.get("page")
+                doc.metadata.update({**base_metadata, "page": page_number})
 
             chunks = embedder.split_and_filter(documents)
-            for chunk in chunks:
-                chunk.metadata.update({"qid": qid, "component": component})
+            for idx, chunk in enumerate(chunks):
+                page_number = chunk.metadata.get("page")
+                chunk.metadata.update({**base_metadata, "page": page_number, "chunk_index": idx})
 
             if not chunks:
                 logger.warning(f"No valid chunks produced for {qid} ({component})")
@@ -127,7 +161,7 @@ def perform_pdf_indexing(
 
             qdrant_manager.upload_documents(
                 documents=chunks,
-                embed_fn=embedder.embed_text,
+                embed_fn=embedder.embed_document,
                 id_prefix=qid,
             )
 
@@ -163,15 +197,12 @@ def perform_pdf_indexing(
 
 
 @task(name="update_embeddings")
-def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int | None = None) -> int:
+def update_embeddings(
+    max_number_of_pdfs: int | None = None,
+    document_type: str = DOCUMENT_TYPE_OTHER,
+) -> int:
     """
     Synchronize embeddings_index rows with the current component_index entries.
-
-    Args:
-        db_path: Path to the workflow's SQLite state database.
-
-    Returns:
-        int: Number of component records processed into embeddings_index.
     """
     logger = get_run_logger()
     qdrant_cfg = cfg("qdrant")
@@ -188,6 +219,11 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
         logger.error(f"Qdrant server is unreachable @: {url}")
         raise RuntimeError(f"Qdrant server is unreachable @: {url}")
 
+    # Prepare embedder once to share embedding dimension across setup and indexing.
+    embedding_cfg = cfg("embedding")
+    model_name = embedding_cfg.get("model_name", "sentence-transformers/all-MiniLM-L6-v2")
+    embedder = EmbedderTools(model_name=model_name)
+
     # First get an overview
     current_points = None
     try:
@@ -198,13 +234,22 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
             f"{current_points:,}",
         )
     except Exception as exc:
-        logger.warning(f"Could not read Qdrant collection size: {exc}")
+        message = str(exc)
+        if "doesn't exist" in message or "Not found" in message or "not exist" in message:
+            logger.warning("Qdrant collection missing; creating it now.")
+            qdrant_manager.ensure_collection(vector_size=embedder.embedding_dimension)
+            try:
+                current_points = qdrant_manager.collection_size()
+            except Exception:
+                current_points = None
+        else:
+            logger.warning(f"Could not read Qdrant collection size: {exc}")
 
-    get_software_items_with_pdf_component.fn(db_path=db_path)
+    get_software_items_with_pdf_component.fn()
 
     logger.info("Updating embeddings_index from component_index")
 
-    conn = get_connection(db_path)
+    conn = get_connection()
     cursor = conn.cursor()
 
     # Get components that have a QIDs in software_index and
@@ -236,13 +281,14 @@ def update_embeddings(db_path: str = str(STATE_DB_PATH), max_number_of_pdfs: int
 
     conn.close()
 
-    logger.info( f"Starting downloading & embedding of {max_number_of_pdfs} PDFs." )
+    logger.info( f"Starting downloading & embedding of {max_number_of_pdfs} PDFs of type {document_type}." )
 
     processed = perform_pdf_indexing(
         components=components,
-        db_path=db_path,
         qdrant_manager=qdrant_manager,
         max_number_of_pdfs=max_number_of_pdfs,
+        document_type=document_type,
+        embedder=embedder,
     )
 
     # Compute changes

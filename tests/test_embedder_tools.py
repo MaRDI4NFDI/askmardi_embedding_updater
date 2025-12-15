@@ -15,7 +15,7 @@ def test_embedder_tools_embed_text_returns_vector(monkeypatch):
     monkeypatch.setattr(
         embedder_tools,
         "SemanticChunker",
-        lambda embeddings=None: type(
+        lambda embeddings=None, **kwargs: type(
             "FakeChunker", (), {"split_documents": lambda _, docs: docs}
         )(),
     )
@@ -26,7 +26,7 @@ def test_embedder_tools_embed_text_returns_vector(monkeypatch):
 
 
 def test_embedder_tools_split_and_filter(monkeypatch):
-    """Chunks shorter than min_length are filtered out."""
+    """Chunks are returned even when below the configured threshold (no silent drop)."""
     monkeypatch.setattr(
         embedder_tools,
         "HuggingFaceEmbeddings",
@@ -37,7 +37,7 @@ def test_embedder_tools_split_and_filter(monkeypatch):
     monkeypatch.setattr(
         embedder_tools,
         "SemanticChunker",
-        lambda embeddings=None: type(
+        lambda embeddings=None, **kwargs: type(
             "FakeChunker", (), {"split_documents": lambda _, docs: docs}
         )(),
     )
@@ -48,4 +48,4 @@ def test_embedder_tools_split_and_filter(monkeypatch):
     long = Document(page_content="l" * 300, metadata={})
 
     chunks = tool.split_and_filter([short, long], min_length=250)
-    assert chunks == [long]
+    assert chunks == [short, long]

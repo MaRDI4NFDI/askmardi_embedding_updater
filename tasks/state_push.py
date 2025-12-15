@@ -4,27 +4,23 @@ from typing import Dict, Optional
 from lakefs_client import ApiException
 from prefect import task, get_run_logger
 
-from helper.constants import STATE_DB_PATH
+from helper.config import get_local_state_db_path
 from helper.lakefs import upload_state_db, commit_state_db
 
 
 @task(name="push_state_db_to_lakefs")
 def push_state_db_to_lakefs(
-    db_path: str = str(STATE_DB_PATH),
     baseline_counts: Optional[Dict[str, int]] = None,
 ) -> None:
     """
     Upload the local SQLite DB to LakeFS and create a commit when changes occurred.
-
-    Args:
-        db_path: Local path of the state DB file to persist.
-        baseline_counts: Optional snapshot of table counts taken before this run.
     """
     logger = get_run_logger()
+    resolved_path_str = str(get_local_state_db_path())
     logger.debug(f"[push_state_db] Start pushing state DB...")
 
     try:
-        changed = upload_state_db(local_path=db_path)
+        changed = upload_state_db()
 
         # If no changes, skip commit and return success
         if not changed:
@@ -32,7 +28,7 @@ def push_state_db_to_lakefs(
             return
 
         try:
-            current_counts = snapshot_table_counts(db_path)
+            current_counts = snapshot_table_counts()
             message = _format_commit_message(current_counts, baseline_counts)
             commit_state_db(message=message)
             logger.info("[push_state_db] New version of state DB committed successfully.")
@@ -49,18 +45,17 @@ def push_state_db_to_lakefs(
         raise
 
 
-def snapshot_table_counts(db_path: str = str(STATE_DB_PATH)) -> Dict[str, int]:
+def snapshot_table_counts() -> Dict[str, int]:
     """Collect row counts for key state tables.
-
-    Args:
-        db_path: Path to the SQLite state database.
 
     Returns:
         dict: Mapping of table name to row count.
     """
+    resolved_path_str = str(get_local_state_db_path())
+
     tables = ["software_index", "component_index", "embeddings_index"]
     counts: Dict[str, int] = {}
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(resolved_path_str)
     try:
         for table in tables:
             cursor = conn.execute(f"SELECT COUNT(*) FROM {table}")

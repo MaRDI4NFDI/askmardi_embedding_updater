@@ -7,7 +7,9 @@ from tasks.update_lakefs_file_index import update_file_index_from_lakefs
 
 def test_update_lakefs_file_index_scans_s3_gateway(tmp_path, monkeypatch):
     db_path = tmp_path / "state.db"
-    _init_db(str(db_path))
+    import tasks.init_db_task as init_module
+    init_module.get_local_state_db_path = lambda: db_path
+    _init_db()
 
     pages = [
         {
@@ -48,7 +50,7 @@ def test_update_lakefs_file_index_scans_s3_gateway(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("tasks.update_lakefs_file_index.get_run_logger", lambda: logging.getLogger("test_logger"))
 
-    update_file_index_from_lakefs.fn(str(db_path))
+    update_file_index_from_lakefs.fn()
 
     conn = sqlite3.connect(str(db_path))
     cur = conn.execute(

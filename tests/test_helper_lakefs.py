@@ -45,7 +45,9 @@ def test_download_state_db_backs_up_existing(tmp_path, monkeypatch):
     monkeypatch.setattr(lakefs, "datetime", FakeDatetime)
     monkeypatch.setattr(lakefs, "get_run_logger", lambda: logging.getLogger("test"))
 
-    result = lakefs.download_state_db(str(local_path))
+    monkeypatch.setattr(lakefs, "get_local_state_db_path", lambda: local_path)
+
+    result = lakefs.download_state_db()
 
     backup_path = local_path.with_name("state.db.backup_20240101T120000Z")
     assert result is True

@@ -5,7 +5,7 @@ from typing import Iterable, List, Optional, Set
 from prefect import task, get_run_logger
 
 from helper.config import cfg
-from helper.constants import STATE_DB_PATH, ALLOWED_EXTENSIONS
+from helper.constants import ALLOWED_EXTENSIONS
 from helper.lakefs import get_lakefs_s3_client
 from tasks.init_db_task import get_connection
 
@@ -60,7 +60,7 @@ def _iter_repo_files(s3_client, bucket: str, prefix: str) -> Set[str]:
 
 
 @task(name="update_lakefs_file_index")
-def update_file_index_from_lakefs(db_path: str = str(STATE_DB_PATH)) -> None:
+def update_file_index_from_lakefs() -> None:
     """
     Index all files found in the LakeFS repository under the given branch.
 
@@ -70,13 +70,11 @@ def update_file_index_from_lakefs(db_path: str = str(STATE_DB_PATH)) -> None:
       • skip files without QID
       • store full S3 key in component_index table
 
-    Args:
-        db_path: path to the workflow state database
     """
     logger = get_run_logger()
     lakefs_cfg = cfg("lakefs")
 
-    conn = get_connection(db_path)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(

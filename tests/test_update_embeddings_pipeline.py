@@ -11,9 +11,11 @@ from tasks.update_embeddings import perform_pdf_indexing, update_embeddings
 
 
 @pytest.fixture()
-def temp_db(tmp_path):
+def temp_db(tmp_path, monkeypatch):
     db_path = tmp_path / "state.db"
-    _init_db(str(db_path))
+    monkeypatch.setattr("tasks.init_db_task.get_local_state_db_path", lambda: db_path)
+    monkeypatch.setattr("helper.config.get_local_state_db_path", lambda: db_path)
+    _init_db()
     return db_path
 
 
@@ -38,6 +40,9 @@ class FakeEmbedder:
         return [Document(page_content="x" * 300, metadata=docs[0].metadata.copy())]
 
     def embed_text(self, text):
+        return [1.0, 2.0, 3.0]
+
+    def embed_document(self, doc):
         return [1.0, 2.0, 3.0]
 
 
@@ -85,7 +90,7 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     monkeypatch.setattr("tasks.update_embeddings.get_run_logger", lambda: type("L", (), {"info": lambda *a, **k: None, "debug": lambda *a, **k: None, "warning": lambda *a, **k: None})())
 
     processed = perform_pdf_indexing(
-        components=[("Q1", "path/to/file.pdf")], db_path=str(temp_db)
+        components=[("Q1", "path/to/file.pdf")]
     )
 
     conn = sqlite3.connect(str(temp_db))
@@ -137,5 +142,5 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
         )(),
     )
 
-    processed = update_embeddings.fn(str(temp_db))
+    processed = update_embeddings.fn()
     assert processed == 2

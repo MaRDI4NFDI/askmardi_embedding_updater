@@ -10,7 +10,7 @@ from lakefs_client.client import LakeFSClient
 from prefect import get_run_logger
 
 from helper.config import cfg
-from helper.constants import STATE_DB_FILENAME, STATE_DB_PATH
+from helper.config import cfg, get_local_state_db_path, get_state_db_filename
 from helper.sharding import shard_qid
 
 
@@ -61,7 +61,7 @@ def get_lakefs_s3_client():
 # Persistence of State DB
 # ============================================================
 
-def download_state_db(local_path: str = str(STATE_DB_PATH)):
+def download_state_db():
     """
     Download the state SQLite DB from LakeFS if present.
     If a local file already exists, it is renamed to `{name}.backup_<timestamp>`.
@@ -73,6 +73,8 @@ def download_state_db(local_path: str = str(STATE_DB_PATH)):
         bool: True when the DB exists and is downloaded; False otherwise.
     """
     logger = get_run_logger()
+    # Always resolve relative to configured state DB location; optional override for tests.
+    resolved_path = get_local_state_db_path()
 
     lakefs = get_lakefs_client()
     lakefs_cfg = cfg("lakefs")
@@ -80,7 +82,8 @@ def download_state_db(local_path: str = str(STATE_DB_PATH)):
     repo = lakefs_cfg["state_repo"]
     branch = lakefs_cfg["branch"]
     prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
-    path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
+    state_db_filename = get_state_db_filename()
+    path_in_repo = f"{prefix}/{state_db_filename}" if prefix else state_db_filename
 
     logger.debug(f"[download_state_db] Downloading state DB from {repo}:{branch}/{path_in_repo}")
 
@@ -91,7 +94,7 @@ def download_state_db(local_path: str = str(STATE_DB_PATH)):
         return False
 
     try:
-        local_path_obj = Path(local_path)
+        local_path_obj = resolved_path
         local_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
         if local_path_obj.exists():
@@ -156,7 +159,7 @@ def download_file(key: str, dest_path: str) -> None:
         fh.write(obj["Body"].read())
 
 
-def upload_state_db(local_path: str = str(STATE_DB_PATH)) -> bool:
+def upload_state_db() -> bool:
     """
     Upload the local state SQLite DB to LakeFS only if changed.
 
@@ -164,17 +167,19 @@ def upload_state_db(local_path: str = str(STATE_DB_PATH)) -> bool:
         bool: True if upload succeeded or up-to-date; False otherwise.
     """
     logger = get_run_logger()
+    resolved_path = get_local_state_db_path()
     lakefs = get_lakefs_client()
     lakefs_cfg = cfg("lakefs")
 
     repo = lakefs_cfg["state_repo"]
     branch = lakefs_cfg["branch"]
     prefix = lakefs_cfg.get("state_repo_directory", "").strip("/")
-    path_in_repo = f"{prefix}/{STATE_DB_FILENAME}" if prefix else STATE_DB_FILENAME
+    state_db_filename = get_state_db_filename()
+    path_in_repo = f"{prefix}/{state_db_filename}" if prefix else state_db_filename
 
     logger.info(f"[upload_state_db] Checking for DB changes at {repo}:{branch}/{path_in_repo}")
 
-    local_checksum = _file_md5(local_path)
+    local_checksum = _file_md5(str(resolved_path))
     logger.debug(f"[upload_state_db] Local checksum: {local_checksum}")
 
     # Check remote checksum
@@ -194,7 +199,7 @@ def upload_state_db(local_path: str = str(STATE_DB_PATH)) -> bool:
     logger.debug(f"[upload_state_db] Uploading DB to LakeFS: {repo}:{branch}/{path_in_repo}")
 
     try:
-        with open(local_path, "rb") as fh:
+        with open(resolved_path, "rb") as fh:
             lakefs.objects_api.upload_object(
                 repository=repo,
                 branch=branch,

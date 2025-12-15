@@ -7,14 +7,21 @@ from typing import List
 import pytest
 
 from helper.config import cfg
-from helper.constants import SOFTWARE_PROFILE_QID, MARDI_PROFILE_TYPE_PID
 from tasks.init_db_task import _init_db, get_connection
-from tasks.update_software_items import build_query, run_query, update_software_item_index_from_mardi
+from tasks.update_software_items import (
+    SOFTWARE_PROFILE_QID,
+    MARDI_PROFILE_TYPE_PID,
+    build_query,
+    run_query,
+    update_software_item_index_from_mardi,
+)
 
 
 def test_update_software_items_with_mocks(tmp_path, monkeypatch):
     db_path = tmp_path / "state.db"
-    _init_db(str(db_path))
+    monkeypatch.setattr("tasks.init_db_task.get_local_state_db_path", lambda: db_path)
+    monkeypatch.setattr("helper.config.get_local_state_db_path", lambda: db_path)
+    _init_db()
 
     all_qids_pool = ["Q1", "Q2", "Q3", "Q4"]
     returned_queries = []
@@ -61,13 +68,13 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
     monkeypatch.setattr("tasks.update_software_items.time.sleep", lambda _: None)
     monkeypatch.setattr("tasks.update_software_items.get_run_logger", lambda: logging.getLogger("test_logger"))
 
-    returned_qids = update_software_item_index_from_mardi.fn(str(db_path))
+    returned_qids = update_software_item_index_from_mardi.fn()
 
     assert returned_qids == ["Q1", "Q2", "Q3"]
     # Ensure the final query used the remaining total limit (1) instead of the per-query ceiling (2)
     assert any("LIMIT 1" in q for q in returned_queries)
 
-    conn = get_connection(str(db_path))
+    conn = get_connection()
     cur = conn.execute("SELECT qid FROM software_index ORDER BY qid")
     persisted = [row[0] for row in cur.fetchall()]
     conn.close()

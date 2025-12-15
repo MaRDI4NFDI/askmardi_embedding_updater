@@ -10,7 +10,9 @@ from tasks.update_embeddings import update_embeddings
 @pytest.mark.integration
 def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
     db_path = tmp_path / "state.db"
-    _init_db(str(db_path))
+    monkeypatch.setattr("tasks.init_db_task.get_local_state_db_path", lambda: db_path)
+    monkeypatch.setattr("helper.config.get_local_state_db_path", lambda: db_path)
+    _init_db()
 
     conn = sqlite3.connect(str(db_path))
     conn.executemany(
@@ -39,14 +41,18 @@ def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
     monkeypatch.setattr("tasks.update_embeddings.get_run_logger", lambda: logging.getLogger("test_logger"))
     monkeypatch.setattr(
         "tasks.update_embeddings.perform_pdf_indexing",
-        lambda components, db_path, **_: len(components),
+        lambda components, **_: len(components),
+    )
+    monkeypatch.setattr(
+        "tasks.update_embeddings.EmbedderTools",
+        lambda *a, **k: type("E", (), {"embedding_dimension": 3})(),
     )
     monkeypatch.setattr(
         "tasks.update_embeddings.QdrantManager",
         lambda **_: type("Q", (), {"is_available": lambda self: True})(),
     )
 
-    processed = update_embeddings.fn(str(db_path))
+    processed = update_embeddings.fn()
 
     conn = sqlite3.connect(str(db_path))
     cur = conn.execute("SELECT COUNT(*) FROM embeddings_index")

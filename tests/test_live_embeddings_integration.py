@@ -69,7 +69,10 @@ def test_live_rag_chain_with_qdrant():
 
     try:
         client = QdrantClient(url=url, api_key=qdrant_cfg.get("api_key"))
-        _ = client.get_collections()
+        collections = client.get_collections()
+        names = {c.name for c in collections.collections}
+        if qdrant_cfg.get("collection") not in names:
+            pytest.skip("Qdrant reachable but target collection missing; skipping live RAG test")
     except Exception:
         pytest.skip("Qdrant not reachable; skipping live RAG test")
 

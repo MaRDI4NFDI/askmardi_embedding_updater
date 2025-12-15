@@ -90,7 +90,7 @@ class QdrantManager:
     def upload_documents(
         self,
         documents: List[Document],
-        embed_fn: Callable[[str], List[float]],
+        embed_fn: Callable[[object], List[float]],
         id_prefix: Optional[str] = None,
     ) -> None:
         """
@@ -98,12 +98,12 @@ class QdrantManager:
 
         Args:
             documents: Documents to embed and upload.
-            embed_fn: Callable that returns an embedding vector for a string.
+            embed_fn: Callable that returns an embedding vector for a Document.
             id_prefix: Optional prefix to keep point IDs unique across batches.
         """
         points = []
         for idx, doc in enumerate(documents):
-            vector = embed_fn(doc.page_content)
+            vector = embed_fn(doc)
 
             payload = {
                 **doc.metadata,
@@ -133,7 +133,7 @@ class QdrantManager:
     def query(
         self,
         query: str,
-        embed_fn: Callable[[str], List[float]],
+        embed_fn: Callable[[object], List[float]],
         limit: int = 30,
     ) -> List[Document]:
         """

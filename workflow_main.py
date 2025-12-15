@@ -5,8 +5,8 @@ from prefect.context import get_run_context
 from prefect.exceptions import MissingContextError
 
 from helper import config as config_helper
-from helper.config import CONFIG_PATH, check_for_config, cfg
-from helper.constants import STATE_DB_PATH
+from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
+from helper.constants import DOCUMENT_TYPE_CRAN
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
 from tasks.state_push import snapshot_table_counts
@@ -29,20 +29,23 @@ def start_update_embedding_workflow(
     logger.info(f"Running with: iterations={update_embeddings_loop_iterations}, "
                 f"per_loop={update_embeddings_embeddings_per_loop}")
 
-    db_path: str = str(STATE_DB_PATH)
+    state_db_path: str = str(get_local_state_db_path())
 
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(state_db_path).parent.mkdir(parents=True, exist_ok=True)
 
     pulled = pull_state_db_from_lakefs()
     if not pulled:
         init_db_task()
-    baseline_counts = snapshot_table_counts(db_path)
+    baseline_counts = snapshot_table_counts()
     update_software_item_index_from_mardi()
     update_file_index_from_lakefs()
 
     for iteration in range(update_embeddings_loop_iterations):
 
-        update_embeddings(max_number_of_pdfs=update_embeddings_embeddings_per_loop)
+        update_embeddings(
+            max_number_of_pdfs=update_embeddings_embeddings_per_loop,
+            document_type=DOCUMENT_TYPE_CRAN)
+
         push_state_db_to_lakefs(baseline_counts=baseline_counts)
 
         completed = iteration + 1

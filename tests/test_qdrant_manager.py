@@ -83,7 +83,7 @@ def test_qdrant_manager_ensure_and_upload(monkeypatch):
     assert client.created is True
 
     doc = Document(page_content="hello", metadata={})
-    mgr.upload_documents([doc], embed_fn=lambda text: [1.0], id_prefix="Q1")
+    mgr.upload_documents([doc], embed_fn=lambda d: [1.0], id_prefix="Q1")
     assert client.uploaded
     collection, points = client.uploaded[0]
     assert collection == "test"
