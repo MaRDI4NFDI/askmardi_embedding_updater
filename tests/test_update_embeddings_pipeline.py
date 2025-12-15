@@ -40,9 +40,6 @@ class FakeEmbedder:
     def embed_text(self, text):
         return [1.0, 2.0, 3.0]
 
-    def format_documents(self, docs, limit=5):
-        return ""
-
 
 class FakeQdrantManager:
     def __init__(self, **kwargs):

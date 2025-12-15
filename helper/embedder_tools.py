@@ -76,16 +76,3 @@ class EmbedderTools:
             List[float]: Embedding vector.
         """
         return self.embeddings.embed_query(text)
-
-    def format_documents(self, docs: List[Document], limit: int = 5) -> str:
-        """
-        Convert documents to a prompt-ready string.
-
-        Args:
-            docs: Documents to format.
-            limit: Maximum number of documents to include.
-
-        Returns:
-            str: Concatenated page content separated by blank lines.
-        """
-        return "\n\n".join([doc.page_content for doc in docs[:limit]])
