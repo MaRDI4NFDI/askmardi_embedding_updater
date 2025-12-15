@@ -104,13 +104,19 @@ class QdrantManager:
         points = []
         for idx, doc in enumerate(documents):
             vector = embed_fn(doc.page_content)
+
             payload = {
                 **doc.metadata,
                 "page_content": doc.page_content,
-                "embeddings": vector,
             }
-            # Qdrant accepts UUIDs or unsigned ints as IDs; use deterministic UUIDs when prefixed.
-            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{id_prefix}-{idx}")) if id_prefix else idx
+
+            # Use deterministic UUIDs when prefixed; otherwise fall back to integer IDs
+            point_id = (
+                str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{id_prefix}-{idx}"))
+                if id_prefix
+                else idx
+            )
+
             points.append(
                 models.PointStruct(
                     id=point_id,
@@ -119,9 +125,17 @@ class QdrantManager:
                 )
             )
 
-        self.client.upload_points(collection_name=self.collection_name, points=points)
+        self.client.upload_points(
+            collection_name=self.collection_name,
+            points=points,
+        )
 
-    def query(self, query: str, embed_fn: Callable[[str], List[float]], limit: int = 30) -> List[Document]:
+    def query(
+        self,
+        query: str,
+        embed_fn: Callable[[str], List[float]],
+        limit: int = 30,
+    ) -> List[Document]:
         """
         Retrieve the top similar documents for a query string.
 
@@ -134,18 +148,30 @@ class QdrantManager:
             List[Document]: Ranked documents returned from Qdrant.
         """
         query_embedding = embed_fn(query)
+
         result = self.client.query_points(
             collection_name=self.collection_name,
-            with_vectors=True,
             query=query_embedding,
             limit=limit,
+            with_vectors=False,
         )
 
-        documents = []
+        documents: List[Document] = []
         for point in result.points:
-            content = point.payload.get("page_content", "")
-            metadata = point.payload
-            documents.append(Document(page_content=content, metadata=metadata))
+            page_content = point.payload.get("page_content", "")
+
+            metadata = {
+                k: v for k, v in point.payload.items()
+                if k != "page_content"
+            }
+
+            documents.append(
+                Document(
+                    page_content=page_content,
+                    metadata=metadata,
+                )
+            )
+
         return documents
 
     def collection_size(self) -> int:
@@ -155,7 +181,9 @@ class QdrantManager:
         Returns:
             int: Number of points stored in the collection.
         """
-        collection_info = self.client.get_collection(collection_name=self.collection_name)
+        collection_info = self.client.get_collection(
+            collection_name=self.collection_name
+        )
         return collection_info.points_count
 
     def _collection_exists(self) -> bool:
