@@ -1,12 +1,17 @@
 name: Build and Push Docker image
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Tests
     branches:
       - main
+    types:
+      - completed
 
 jobs:
   build:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -16,6 +21,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -35,7 +42,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/mardi4nfdi/askmardi_embedding_updater:latest
-            ghcr.io/mardi4nfdi/askmardi_embedding_updater:${{ github.sha }}
+            ghcr.io/mardi4nfdi/askmardi_embedding_updater:${{ github.event.workflow_run.head_sha }}
 
       - name: Verify pushed image
         run: docker pull ghcr.io/mardi4nfdi/askmardi_embedding_updater:latest

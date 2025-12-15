@@ -36,7 +36,10 @@ class FakeEmbedder:
     def load_pdf_file(self, path):
         return [Document(page_content="test content", metadata={})]
 
-    def split_and_filter(self, docs, min_length=250):
+    def split_and_filter(self, documents=None, min_length=250, **kwargs):
+        docs = documents or []
+        if not docs:
+            return []
         return [Document(page_content="x" * 300, metadata=docs[0].metadata.copy())]
 
     def embed_text(self, text):
@@ -94,11 +97,11 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     )
 
     conn = sqlite3.connect(str(temp_db))
-    rows = conn.execute("SELECT qid, component FROM embeddings_index").fetchall()
+    rows = conn.execute("SELECT qid, component, status FROM embeddings_index").fetchall()
     conn.close()
 
     assert processed == 1
-    assert rows == [("Q1", "path/to/file.pdf")]
+    assert rows == [("Q1", "path/to/file.pdf", "ok")]
     assert fake_qdrant.uploaded, "Vectors should be uploaded to Qdrant"
 
 

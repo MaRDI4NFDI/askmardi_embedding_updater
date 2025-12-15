@@ -12,6 +12,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 from openai import OpenAI
 from qdrant_client import QdrantClient
+from pathlib import Path
+import time
 
 
 def _llm_health_check(llm_client: OpenAI) -> None:
@@ -170,3 +172,28 @@ def test_llm_health_check_runs():
         api_key=llm_api_key,
     )
     _llm_health_check(client)
+
+
+@pytest.mark.integration
+def test_embedding_small_pdf_completes_quickly():
+    """Ensure embedding a known small PDF completes without timeout."""
+    pdf_path = Path("tests/data/sample.pdf")
+    if not pdf_path.exists():
+        pytest.skip("Sample PDF missing; skipping embedding integration test")
+
+    embedder = EmbedderTools(
+        model_name=cfg("embedding").get(
+            "model_name",
+            "sentence-transformers/all-MiniLM-L6-v2",
+        )
+    )
+
+    docs = embedder.load_pdf_file(str(pdf_path))
+    total_chars = sum(len(doc.page_content) for doc in docs)
+
+    start = time.time()
+    chunks = embedder.split_and_filter(docs)
+    elapsed = time.time() - start
+
+    assert chunks, "Embedding produced no chunks"
+    print(f"[Embedding timing] chars={total_chars}, chunks={len(chunks)}, elapsed={elapsed:.3f}s")

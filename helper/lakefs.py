@@ -5,6 +5,7 @@ from datetime import datetime
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ConnectTimeoutError, ReadTimeoutError, EndpointConnectionError
 from lakefs_client import Configuration, ApiException
 from lakefs_client.client import LakeFSClient
 from prefect import get_run_logger
@@ -37,9 +38,13 @@ def get_lakefs_client() -> LakeFSClient:
     return LakeFSClient(configuration=config)
 
 
-def get_lakefs_s3_client():
+def get_lakefs_s3_client(connect_timeout: int | None = None, read_timeout: int | None = None):
     """
     Create a boto3 client for the LakeFS S3 gateway.
+
+    Args:
+        connect_timeout: Optional socket connect timeout in seconds.
+        read_timeout: Optional socket read timeout in seconds.
 
     Returns:
         boto3.client: Configured S3-compatible client for LakeFS.
@@ -47,13 +52,19 @@ def get_lakefs_s3_client():
     lakefs_cfg = cfg("lakefs")
     endpoint = f"{lakefs_cfg['url'].rstrip('/')}"
 
+    config_kwargs = {"s3": {"addressing_style": "path"}}
+    if connect_timeout is not None:
+        config_kwargs["connect_timeout"] = connect_timeout
+    if read_timeout is not None:
+        config_kwargs["read_timeout"] = read_timeout
+
     return boto3.client(
         "s3",
         endpoint_url=endpoint,
         aws_access_key_id=lakefs_cfg["user"],
         aws_secret_access_key=lakefs_cfg["password"],
         region_name="us-east-1",
-        config=Config(s3={"addressing_style": "path"}),
+        config=Config(**config_kwargs),
     )
 
 
@@ -146,17 +157,35 @@ def download_file(key: str, dest_path: str) -> None:
         dest_path: Local filesystem path to write the object contents.
 
     Raises:
-        Exception: Propagates any download or write errors.
+        TimeoutError: When the download exceeds 30 seconds.
+        Exception: Propagates any other download or write errors.
     """
     logger = get_run_logger()
     lakefs_cfg = cfg("lakefs")
     bucket = lakefs_cfg["data_repo"]
-    s3_client = get_lakefs_s3_client()
+    timeout_seconds = 30
 
-    logger.debug(f"[download_file] Downloading from lakeFS with s3://{bucket}/{key} -> {dest_path}")
-    obj = s3_client.get_object(Bucket=bucket, Key=key)
-    with open(dest_path, "wb") as fh:
-        fh.write(obj["Body"].read())
+    # Use shared LakeFS S3 client with request timeouts enforced.
+    s3_client = get_lakefs_s3_client(
+        connect_timeout=timeout_seconds,
+        read_timeout=timeout_seconds,
+    )
+
+    logger.debug(
+        f"[download_file] Downloading (timeout={timeout_seconds}s) from lakeFS with s3://{bucket}/{key} -> {dest_path}"
+    )
+
+    try:
+        obj = s3_client.get_object(Bucket=bucket, Key=key)
+        with open(dest_path, "wb") as fh:
+            fh.write(obj["Body"].read())
+    except (ConnectTimeoutError, ReadTimeoutError, EndpointConnectionError) as exc:
+        logger.error(
+            f"[download_file] Timed out after {timeout_seconds}s while downloading s3://{bucket}/{key}"
+        )
+        raise TimeoutError(
+            f"Download timed out after {timeout_seconds}s for key '{key}'"
+        ) from exc
 
 
 def upload_state_db() -> bool:

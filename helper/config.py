@@ -13,6 +13,7 @@ CONFIG_PATH = Path("config.yaml")
 
 _cache = None  # keep config in memory
 is_prefect_environment: bool = True
+_cfg_log_once = False
 
 
 def load_config(config_path: Path = CONFIG_PATH):
@@ -30,9 +31,6 @@ def load_config(config_path: Path = CONFIG_PATH):
     global _cache
     logger = _get_logger()
     if _cache is not None:
-        if is_prefect_environment:
-            _apply_prefect_lakefs_credentials(_cache, logger)
-        _apply_env_overrides(_cache, logger)
         return _cache
 
     if not config_path.exists():
@@ -116,8 +114,11 @@ def cfg(section: str, config_path: Path = CONFIG_PATH) -> dict:
     Raises:
         KeyError: If the section is not present in the config file.
     """
+    global _cfg_log_once
     logger = _get_logger()
-    logger.debug(f"Checking for config file at: {config_path}")
+    if not _cfg_log_once:
+        logger.debug(f"Checking for config file at: {config_path}")
+        _cfg_log_once = True
 
     config = load_config(config_path)
     if section not in config:
@@ -152,11 +153,14 @@ def _apply_prefect_lakefs_credentials(config: Dict, logger) -> None:
         logger.debug("Prefect context unavailable; skipping Prefect secret overrides.")
         return
 
+    logger.debug("Prefect environment found; loading lakeFS credentials from secrets.")
+
     credentials = _load_credentials_from_prefect("lakefs", logger)
     if credentials:
         existing = config.get("lakefs") or {}
         updated = {**existing, **credentials}
         config["lakefs"] = updated
+        logger.debug("lakeFS set from prefect secrets.")
 
 
 def _load_credentials_from_prefect(name: str, logger) -> Optional[Dict[str, str]]:
