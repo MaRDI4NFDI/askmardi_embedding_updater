@@ -116,7 +116,7 @@ def perform_pdf_indexing(
             (qid, component),
         )
         if cursor.fetchone():
-            logger.debug(f"Skipping {qid} — already embedded")
+            # logger.debug(f"Skipping {qid} — already embedded")
             continue
 
         logger.info(f"Downloading and Embedding PDF {processed+1}/{max_number_of_pdfs}  for QID: {qid} ...")
@@ -148,7 +148,39 @@ def perform_pdf_indexing(
                 page_number = doc.metadata.get("page")
                 doc.metadata.update({**base_metadata, "page": page_number})
 
-            chunks = embedder.split_and_filter(documents)
+            # Show debug info
+            timeout_seconds = 100
+            total_docs = len(documents)
+            total_chars = sum(len(doc.page_content) for doc in documents)
+            logger.info(
+                "Starting semantic chunking: %d pages, total_chars=%d, min_length=%s, timeout=%ss",
+                total_docs,
+                total_chars,
+                embedder.chunk_params.get("min_chunk_size"),
+                timeout_seconds,
+            )
+
+            chunk_elapsed = None
+            try:
+                chunk_start = datetime.now(timezone.utc)
+                chunks = embedder.split_and_filter(documents, timeout_seconds=timeout_seconds)
+                elapsed = (datetime.now(timezone.utc) - chunk_start).total_seconds()
+                chunk_elapsed = elapsed
+            except TimeoutError as exc:
+                logger.warning(f"Chunking timed out for {qid} ({component}): {exc}")
+                timestamp = datetime.now(timezone.utc).isoformat()
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO embeddings_index
+                        (qid, component, updated_at, status)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (qid, component, timestamp, "failed - TimeoutError"),
+                )
+                conn.commit()
+                processed += 1
+                continue
+
             for idx, chunk in enumerate(chunks):
                 page_number = chunk.metadata.get("page")
                 chunk.metadata.update({**base_metadata, "page": page_number, "chunk_index": idx})
@@ -169,14 +201,20 @@ def perform_pdf_indexing(
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO embeddings_index
-                    (qid, component, updated_at)
-                VALUES (?, ?, ?)
+                    (qid, component, updated_at, status)
+                VALUES (?, ?, ?, ?)
                 """,
-                (qid, component, timestamp),
+                (qid, component, timestamp, "ok"),
             )
             conn.commit()
             processed += 1
-            logger.debug(f"Embedded and indexed {qid} ({component})")
+            logger.info(
+                "Semantic chunking completed for %s (%s) in %.2fs producing %d chunks",
+                qid,
+                component,
+                chunk_elapsed,
+                len(chunks),
+            )
 
             if max_number_of_pdfs is not None and processed >= max_number_of_pdfs:
                 logger.info(f"Reached max_number_of_pdfs={max_number_of_pdfs}; stopping early")

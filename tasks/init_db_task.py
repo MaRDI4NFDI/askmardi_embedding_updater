@@ -38,6 +38,7 @@ SCHEMA_QUERIES = [
         qid TEXT,
         component TEXT,
         updated_at TEXT,
+        status TEXT DEFAULT 'ok',
         PRIMARY KEY (qid, component)
     );
     """

@@ -15,6 +15,7 @@ def temp_db(tmp_path, monkeypatch):
     db_path = tmp_path / "state.db"
     monkeypatch.setattr("tasks.init_db_task.get_local_state_db_path", lambda: db_path)
     monkeypatch.setattr("helper.config.get_local_state_db_path", lambda: db_path)
+    monkeypatch.setattr("tasks.update_embeddings.get_connection", lambda: sqlite3.connect(str(db_path)))
     _init_db()
     return db_path
 
@@ -32,21 +33,20 @@ class FakeS3Client:
 class FakeEmbedder:
     def __init__(self):
         self.embedding_dimension = 3
+        self.chunk_params = {"min_chunk_size": 250}
 
     def load_pdf_file(self, path):
         return [Document(page_content="test content", metadata={})]
 
     def split_and_filter(self, documents=None, min_length=250, **kwargs):
-        docs = documents or []
-        if not docs:
-            return []
-        return [Document(page_content="x" * 300, metadata=docs[0].metadata.copy())]
+        return [Document(page_content="x" * 300, metadata=documents[0].metadata.copy())]
 
     def embed_text(self, text):
         return [1.0, 2.0, 3.0]
 
     def embed_document(self, doc):
         return [1.0, 2.0, 3.0]
+
 
 
 class FakeQdrantManager:
@@ -60,24 +60,30 @@ class FakeQdrantManager:
         return None
 
     def upload_documents(self, documents, embed_fn, id_prefix=None):
-        self.uploaded.append((documents, id_prefix))
+        # simulate full behavior without Qdrant client
+        for idx, doc in enumerate(documents):
+            _ = embed_fn(doc)  # ensure callable works
+            assert hasattr(doc, "metadata")
+            assert hasattr(doc, "page_content")
+        self.uploaded.append(len(documents))
+        return None
 
 
 def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     conn = sqlite3.connect(str(temp_db))
-    conn.executemany(
+    conn.execute(
         """
         INSERT INTO software_index (qid, updated_at)
         VALUES (?, ?)
         """,
-        [("Q1", datetime.now(timezone.utc).isoformat())],
+        ("Q1", datetime.now(timezone.utc).isoformat()),
     )
-    conn.executemany(
+    conn.execute(
         """
         INSERT INTO component_index (qid, component, updated_at)
         VALUES (?, ?, ?)
         """,
-        [("Q1", "path/to/file.pdf", datetime.now(timezone.utc).isoformat())],
+        ("Q1", "path/to/file.pdf", datetime.now(timezone.utc).isoformat()),
     )
     conn.commit()
     conn.close()
@@ -89,8 +95,22 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())
     fake_qdrant = FakeQdrantManager()
     monkeypatch.setattr("tasks.update_embeddings.QdrantManager", lambda **k: fake_qdrant)
-    monkeypatch.setattr("tasks.update_embeddings.cfg", lambda section: {"data_repo": "bucket"} if section == "lakefs" else {})
+    monkeypatch.setattr(
+        "tasks.update_embeddings.cfg",
+        lambda section: (
+            {"data_repo": "bucket"}
+            if section == "lakefs"
+            else {"collection": "test_collection"}
+            if section == "qdrant"
+            else {"model_name": "stub"}
+            if section == "embedding"
+            else {}
+        ),
+    )
     monkeypatch.setattr("tasks.update_embeddings.get_run_logger", lambda: type("L", (), {"info": lambda *a, **k: None, "debug": lambda *a, **k: None, "warning": lambda *a, **k: None})())
+    monkeypatch.setattr("tasks.update_embeddings.get_connection", lambda: sqlite3.connect(str(temp_db)))
+    # Avoid loading real lakefs client
+    monkeypatch.setattr("tasks.update_embeddings.download_file", lambda key, dest_path: Path(dest_path).write_bytes(b"pdf-bytes"))
 
     processed = perform_pdf_indexing(
         components=[("Q1", "path/to/file.pdf")]
@@ -100,8 +120,8 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     rows = conn.execute("SELECT qid, component, status FROM embeddings_index").fetchall()
     conn.close()
 
-    assert processed == 1
     assert rows == [("Q1", "path/to/file.pdf", "ok")]
+    assert processed == 1
     assert fake_qdrant.uploaded, "Vectors should be uploaded to Qdrant"
 
 
@@ -131,12 +151,24 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
         "tasks.update_embeddings.download_file",
         lambda key, dest_path: Path(dest_path).write_bytes(b"pdf-bytes"),
     )
+    monkeypatch.setattr(
+        "tasks.update_embeddings.perform_pdf_indexing",
+        lambda components, qdrant_manager=None, max_number_of_pdfs=None, document_type=None, embedder=None: len(components),
+    )
     monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())
     fake_qdrant = FakeQdrantManager()
     monkeypatch.setattr("tasks.update_embeddings.QdrantManager", lambda **k: fake_qdrant)
     monkeypatch.setattr(
         "tasks.update_embeddings.cfg",
-        lambda section: {"data_repo": "bucket"} if section == "lakefs" else {},
+        lambda section: (
+            {"data_repo": "bucket"}
+            if section == "lakefs"
+            else {"collection": "test_collection"}
+            if section == "qdrant"
+            else {"model_name": "stub"}
+            if section == "embedding"
+            else {}
+        ),
     )
     monkeypatch.setattr(
         "tasks.update_embeddings.get_run_logger",
@@ -144,6 +176,8 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
             "L", (), {"info": lambda *a, **k: None, "debug": lambda *a, **k: None, "warning": lambda *a, **k: None}
         )(),
     )
+    monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())
+    monkeypatch.setattr("tasks.update_embeddings.get_connection", lambda: sqlite3.connect(str(temp_db)))
 
     processed = update_embeddings.fn()
     assert processed == 2
