@@ -53,6 +53,7 @@ def test_download_state_db_backs_up_existing(tmp_path, monkeypatch):
     monkeypatch.setattr(lakefs, "get_run_logger", lambda: logging.getLogger("test"))
 
     monkeypatch.setattr(lakefs, "get_local_state_db_path", lambda: local_path)
+    monkeypatch.setattr(lakefs, "get_state_db_filename", lambda: "state.db")
 
     result = lakefs.download_state_db()
 
