@@ -19,6 +19,7 @@ from tasks.init_db_task import get_connection
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
+MODEL_INIT_LOCK = threading.Lock()
 
 """
 High-level call order (condensed):
@@ -211,7 +212,11 @@ def _get_embedder(
     """
     cached = getattr(thread_local, "embedder", None)
     if cached is None:
-        thread_local.embedder = EmbedderTools(model_name=model_name, **embedder_init_kwargs)
+        with MODEL_INIT_LOCK:
+            thread_local.embedder = EmbedderTools(
+                model_name=model_name,
+                **embedder_init_kwargs,
+            )
         cached = thread_local.embedder
     return cached
 
