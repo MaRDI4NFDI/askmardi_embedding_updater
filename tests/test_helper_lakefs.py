@@ -36,11 +36,18 @@ def test_download_state_db_backs_up_existing(tmp_path, monkeypatch):
     monkeypatch.setattr(
         lakefs,
         "cfg",
-        lambda section: {
-            "state_repo": "repo",
-            "branch": "main",
-            "state_repo_directory": "",
-        },
+        lambda section: (
+            {
+                "state_repo": "repo",
+                "branch": "main",
+                "state_repo_directory": "",
+                "state_db_filename_prefix": "askmardi_embedding_updater__state",
+            }
+            if section == "lakefs"
+            else {"collection": "test_collection"}
+            if section == "qdrant"
+            else {}
+        ),
     )
     monkeypatch.setattr(lakefs, "datetime", FakeDatetime)
     monkeypatch.setattr(lakefs, "get_run_logger", lambda: logging.getLogger("test"))
