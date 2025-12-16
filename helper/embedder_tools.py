@@ -18,6 +18,7 @@ class EmbedderTools:
         self,
         model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
         chunk_params: Optional[Dict] = None,
+        model_kwargs: Optional[Dict] = None,
     ) -> None:
         """
         Initialize the embedding model and semantic chunker.
@@ -25,8 +26,10 @@ class EmbedderTools:
         Args:
             model_name: Hugging Face embedding model identifier.
             chunk_params: Optional overrides for SemanticChunker configuration.
+            model_kwargs: Optional kwargs forwarded to HuggingFaceEmbeddings (e.g., device="cpu").
         """
-        self.embeddings = HuggingFaceEmbeddings(model_name=model_name)
+        model_kwargs = model_kwargs or {"device": "cpu"}
+        self.embeddings = HuggingFaceEmbeddings(model_name=model_name, model_kwargs=model_kwargs)
         # Target ~800–1800 char chunks with light overlap to fit 10 chunks into a 4k token window.
         default_chunk_params: Dict = {
             "min_chunk_size": 900,
