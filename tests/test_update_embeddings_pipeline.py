@@ -59,6 +59,9 @@ class FakeQdrantManager:
     def ensure_collection(self, vector_size: int):
         return None
 
+    def embed_and_upload_documents(self, documents, embed_fn, id_prefix=None):
+        return self.upload_documents(documents, embed_fn, id_prefix=id_prefix)
+
     def upload_documents(self, documents, embed_fn, id_prefix=None):
         # simulate full behavior without Qdrant client
         for idx, doc in enumerate(documents):
