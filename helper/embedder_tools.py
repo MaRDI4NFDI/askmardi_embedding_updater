@@ -70,7 +70,8 @@ class EmbedderTools:
 
     def load_pdf_file(self, file_path: str) -> List[Document]:
         """
-        Load a single PDF file into LangChain documents.
+        Load a single PDF file into LangChain documents, which represent
+        the individual pages.
 
         Args:
             file_path: Absolute or relative path to the PDF file.

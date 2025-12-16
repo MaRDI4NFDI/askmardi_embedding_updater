@@ -87,14 +87,14 @@ class QdrantManager:
             hnsw_config=models.HnswConfigDiff(on_disk=True),
         )
 
-    def upload_documents(
+    def embed_and_upload_documents(
         self,
         documents: List[Document],
         embed_fn: Callable[[object], List[float]],
         id_prefix: Optional[str] = None,
     ) -> None:
         """
-        Embed and upload a batch of documents to the collection.
+        Embed and upload a batch of documents to the qdrant database / collection.
 
         Args:
             documents: Documents to embed and upload.
