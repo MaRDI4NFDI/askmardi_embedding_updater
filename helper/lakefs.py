@@ -1,5 +1,5 @@
 import hashlib
-from pathlib import Path
+import logging
 from typing import List, Tuple, Optional
 from datetime import datetime
 
@@ -13,6 +13,16 @@ from prefect import get_run_logger
 from helper.config import cfg
 from helper.config import cfg, get_local_state_db_path, get_state_db_filename
 from helper.sharding import shard_qid
+
+
+def _get_logger():
+    """
+    Return a Prefect run logger when available, otherwise fall back to stdlib logging.
+    """
+    try:
+        return get_run_logger()
+    except Exception:  # noqa: BLE001
+        return logging.getLogger(__name__)
 
 
 def get_lakefs_client() -> LakeFSClient:
@@ -83,7 +93,7 @@ def download_state_db():
     Returns:
         bool: True when the DB exists and is downloaded; False otherwise.
     """
-    logger = get_run_logger()
+    logger = _get_logger()
     # Always resolve relative to configured state DB location; optional override for tests.
     resolved_path = get_local_state_db_path()
 
@@ -160,7 +170,7 @@ def download_file(key: str, dest_path: str) -> None:
         TimeoutError: When the download exceeds 30 seconds.
         Exception: Propagates any other download or write errors.
     """
-    logger = get_run_logger()
+    logger = _get_logger()
     lakefs_cfg = cfg("lakefs")
     bucket = lakefs_cfg["data_repo"]
     timeout_seconds = 30
@@ -195,7 +205,7 @@ def upload_state_db() -> bool:
     Returns:
         bool: True if upload succeeded or up-to-date; False otherwise.
     """
-    logger = get_run_logger()
+    logger = _get_logger()
     resolved_path = get_local_state_db_path()
     lakefs = get_lakefs_client()
     lakefs_cfg = cfg("lakefs")
