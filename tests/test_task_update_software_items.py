@@ -9,8 +9,6 @@ import pytest
 from helper.config import cfg
 from tasks.init_db_task import _init_db, get_connection
 from tasks.update_software_items import (
-    SOFTWARE_PROFILE_QID,
-    MARDI_PROFILE_TYPE_PID,
     build_query,
     run_query,
     update_software_item_index_from_mardi,
@@ -63,8 +61,10 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
 
     monkeypatch.setattr("tasks.update_software_items.cfg", fake_cfg)
     monkeypatch.setattr("tasks.update_software_items.run_query", fake_run_query)
-    monkeypatch.setattr("tasks.update_software_items.SOFTWARE_PROFILE_QID", "QSOFT")
-    monkeypatch.setattr("tasks.update_software_items.MARDI_PROFILE_TYPE_PID", "PPID")
+    # Ensure globals are present for backward compatibility in the module
+    mod = __import__("tasks.update_software_items")
+    setattr(mod, "SOFTWARE_PROFILE_QID", "QSOFT")
+    setattr(mod, "MARDI_PROFILE_TYPE_PID", "PPID")
     monkeypatch.setattr("tasks.update_software_items.time.sleep", lambda _: None)
     monkeypatch.setattr("tasks.update_software_items.get_run_logger", lambda: logging.getLogger("test_logger"))
 
@@ -110,7 +110,5 @@ def test_run_query_against_real_endpoint(monkeypatch):
 
     assert len(results) <= limit
     assert all(qid.startswith("Q") for qid in results)
-    if not SOFTWARE_PROFILE_QID or not MARDI_PROFILE_TYPE_PID:
-        pytest.skip("Profile constants not configured; skipping integration assertion")
-    assert SOFTWARE_PROFILE_QID.startswith("Q")
-    assert MARDI_PROFILE_TYPE_PID.startswith("P")
+    assert wb_cfg.get("mardi_software_profile_qid", "").startswith("Q")
+    assert wb_cfg.get("mardi_profile_type_pid", "").startswith("P")

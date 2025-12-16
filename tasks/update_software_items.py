@@ -8,10 +8,6 @@ from prefect import task, get_run_logger
 from tasks.init_db_task import get_connection
 from helper.config import cfg
 
-_mardi_cfg = cfg("mardi_kg")
-SOFTWARE_PROFILE_QID = _mardi_cfg.get("mardi_software_profile_qid")
-MARDI_PROFILE_TYPE_PID = _mardi_cfg.get("mardi_profile_type_pid")
-
 
 def build_query(offset: int, limit: Optional[int]) -> str:
     """
@@ -25,6 +21,9 @@ def build_query(offset: int, limit: Optional[int]) -> str:
         str: SPARQL query string.
     """
     limit_clause = f"\n    LIMIT {limit}" if limit is not None else ""
+    mardi_cfg = cfg("mardi_kg")
+    software_qid = mardi_cfg.get("mardi_software_profile_qid", "")
+    profile_pid = mardi_cfg.get("mardi_profile_type_pid", "")
 
     return f"""
     PREFIX wd: <https://portal.mardi4nfdi.de/entity/>
@@ -32,7 +31,7 @@ def build_query(offset: int, limit: Optional[int]) -> str:
 
     SELECT ?qid
     WHERE {{
-      ?item wdt:{MARDI_PROFILE_TYPE_PID} wd:{SOFTWARE_PROFILE_QID} .
+      ?item wdt:{profile_pid} wd:{software_qid} .
       BIND(REPLACE(STR(?item), "^.*/", "") AS ?qid)
     }}
     ORDER BY ?qid

@@ -18,8 +18,8 @@ from tasks.state_push import push_state_db_to_lakefs
 
 @flow(name="start_update_embedding_workflow")
 def start_update_embedding_workflow(
-        update_embeddings_loop_iterations: int = 1,
-        update_embeddings_embeddings_per_loop: int = 10,
+        update_embeddings_loop_iterations: int = 10,
+        update_embeddings_embeddings_per_loop: int = 100,
 ):
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
