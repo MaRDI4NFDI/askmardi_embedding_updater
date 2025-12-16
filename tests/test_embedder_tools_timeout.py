@@ -20,7 +20,7 @@ def test_split_and_filter_times_out(monkeypatch):
     monkeypatch.setattr(
         embedder_tools,
         "HuggingFaceEmbeddings",
-        lambda model_name=None: type("FakeEmbeddings", (), {"embed_query": lambda _, text: [len(text)]})(),
+        lambda model_name=None, **_: type("FakeEmbeddings", (), {"embed_query": lambda _, text: [len(text)]})(),
     )
     # Inject a slow chunker
     monkeypatch.setattr(

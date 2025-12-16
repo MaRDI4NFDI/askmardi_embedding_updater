@@ -47,7 +47,7 @@ def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
 
     monkeypatch.setattr("tasks.update_embeddings.get_run_logger", lambda: logging.getLogger("test_logger"))
     monkeypatch.setattr(
-        "tasks.update_embeddings.perform_pdf_indexing",
+        "tasks.update_embeddings.embed_and_upload_all_PDFs",
         lambda components, **_: len(components),
     )
     monkeypatch.setattr(
@@ -67,4 +67,4 @@ def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
     conn.close()
 
     assert processed == 2
-    assert count == 0  # perform_pdf_indexing stubbed; no DB writes here
+    assert count == 0  # embed_and_upload_all_PDFs stubbed; no DB writes here

@@ -7,7 +7,7 @@ import pytest
 from langchain_core.documents import Document
 
 from tasks.init_db_task import _init_db
-from tasks.update_embeddings import perform_pdf_indexing, update_embeddings
+from tasks.update_embeddings import embed_and_upload_all_PDFs, update_embeddings
 
 
 @pytest.fixture()
@@ -112,7 +112,7 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
     # Avoid loading real lakefs client
     monkeypatch.setattr("tasks.update_embeddings.download_file", lambda key, dest_path: Path(dest_path).write_bytes(b"pdf-bytes"))
 
-    processed = perform_pdf_indexing(
+    processed = embed_and_upload_all_PDFs(
         components=[("Q1", "path/to/file.pdf")]
     )
 
@@ -152,7 +152,7 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
         lambda key, dest_path: Path(dest_path).write_bytes(b"pdf-bytes"),
     )
     monkeypatch.setattr(
-        "tasks.update_embeddings.perform_pdf_indexing",
+        "tasks.update_embeddings.embed_and_upload_all_PDFs",
         lambda components, qdrant_manager=None, max_number_of_pdfs=None, document_type=None, embedder=None: len(components),
     )
     monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())

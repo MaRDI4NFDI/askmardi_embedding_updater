@@ -8,7 +8,7 @@ def test_embedder_tools_embed_text_returns_vector(monkeypatch):
     monkeypatch.setattr(
         embedder_tools,
         "HuggingFaceEmbeddings",
-        lambda model_name=None: type(
+        lambda model_name=None, **_: type(
             "FakeEmbeddings", (), {"embed_query": lambda _, text: [float(len(text))]}
         )(),
     )
@@ -30,7 +30,7 @@ def test_embedder_tools_split_and_filter(monkeypatch):
     monkeypatch.setattr(
         embedder_tools,
         "HuggingFaceEmbeddings",
-        lambda model_name=None: type(
+        lambda model_name=None, **_: type(
             "FakeEmbeddings", (), {"embed_query": lambda _, text: [float(len(text))]}
         )(),
     )
