@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,12 @@ from tasks.update_embeddings import update_embeddings
 
 @pytest.mark.integration
 def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
+
+    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+
+    if not config_path.exists():
+        pytest.skip("config.yaml not found; skipping LakeFS integration test")
+
     db_path = tmp_path / "state.db"
     monkeypatch.setattr("tasks.init_db_task.get_local_state_db_path", lambda: db_path)
     monkeypatch.setattr("helper.config.get_local_state_db_path", lambda: db_path)

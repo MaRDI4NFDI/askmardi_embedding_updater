@@ -64,6 +64,11 @@ def test_live_rag_chain_with_qdrant():
     Run a live RAG query against Qdrant if everything is reachable.
     Automatically skipped when services or credentials are missing.
     """
+    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+
+    if not config_path.exists():
+        pytest.skip("config.yaml not found; skipping LakeFS integration test")
+
     qdrant_cfg = cfg("qdrant")
     url = qdrant_cfg.get("url", "http://localhost:6333")
     collection = qdrant_cfg.get("collection", "rag-collection")
@@ -160,6 +165,12 @@ def test_live_rag_chain_with_qdrant():
 
 @pytest.mark.integration
 def test_llm_health_check_runs():
+
+    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+
+    if not config_path.exists():
+        pytest.skip("config.yaml not found; skipping LakeFS integration test")
+
     ollama_cfg = cfg("ollama")
     llm_host = ollama_cfg.get("host")
     llm_api_key = ollama_cfg.get("api_key")

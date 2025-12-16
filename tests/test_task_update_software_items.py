@@ -2,6 +2,7 @@
 # pytest -o log_cli=true -o log_cli_level=DEBUG
 
 import logging
+from pathlib import Path
 from typing import List
 
 import pytest
@@ -84,6 +85,12 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
 
 @pytest.mark.integration
 def test_run_query_against_real_endpoint(monkeypatch):
+
+    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+
+    if not config_path.exists():
+        pytest.skip("config.yaml not found; skipping LakeFS integration test")
+
     monkeypatch.setattr("helper.lakefs.get_run_logger", lambda: logging.getLogger("test"))
     monkeypatch.setattr("helper.config.get_run_logger", lambda: logging.getLogger("test"))
 

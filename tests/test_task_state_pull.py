@@ -11,9 +11,35 @@ def test_pull_state_db_from_lakefs_invokes_download(monkeypatch):
         calls.append("called")
         return True
 
-    monkeypatch.setattr("tasks.state_pull.download_state_db", fake_download_state_db)
-    monkeypatch.setattr("tasks.state_pull.get_run_logger", lambda: logging.getLogger("test_logger"))
-    monkeypatch.setattr("tasks.state_pull.get_local_state_db_path", lambda: Path("state/test.db"))
+    # Patch dependencies used inside pull_state_db_from_lakefs
+    monkeypatch.setattr(
+        "tasks.state_pull.download_state_db",
+        fake_download_state_db,
+    )
+    monkeypatch.setattr(
+        "tasks.state_pull.get_run_logger",
+        lambda: logging.getLogger("test_logger"),
+    )
+    monkeypatch.setattr(
+        "tasks.state_pull.get_local_state_db_path",
+        lambda: Path("state/test.db"),
+    )
+
+    # Patch cfg to avoid reading config.yaml
+    monkeypatch.setattr(
+        "tasks.state_pull.cfg",
+        lambda section: {
+            "state_repo": "dummy-repo",
+            "branch": "main",
+            "state_repo_directory": "",
+        },
+    )
+
+    # Patch get_state_db_filename to stop config access
+    monkeypatch.setattr(
+        "tasks.state_pull.get_state_db_filename",
+        lambda: "test.db",
+    )
 
     result = pull_state_db_from_lakefs.fn()
 
