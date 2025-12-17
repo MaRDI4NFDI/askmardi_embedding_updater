@@ -4,8 +4,16 @@ from helper import qdrant_manager
 
 
 class DummyCollectionInfo:
-    def __init__(self, points_count=0):
+    def __init__(self, points_count=0, payload_schema=None):
+        """Lightweight stand-in for collection metadata.
+
+        Args:
+            points_count: Number of stored points in the collection.
+            payload_schema: Optional schema dict; defaults to having page_content indexed.
+        """
         self.points_count = points_count
+        # Ensure payload_schema exists so _ensure_text_index short-circuits in tests.
+        self.payload_schema = payload_schema or {"page_content": {}}
 
 
 class DummyCollections:
