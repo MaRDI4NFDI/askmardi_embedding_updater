@@ -458,7 +458,7 @@ def embed_and_upload_all_PDFs(
         qdrant_manager = QdrantManager(
             url=qdrant_cfg.get("url", "http://localhost:6333"),
             api_key=qdrant_cfg.get("api_key"),
-            collection_name=qdrant_cfg.get("collection", "software_docs"),
+            collection_name=qdrant_cfg.get("collection", "sandbox"),
             distance=qdrant_cfg.get("distance", "COSINE"),
         )
 
