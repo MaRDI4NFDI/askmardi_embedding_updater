@@ -158,9 +158,21 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
         "tasks.update_embeddings.download_file",
         lambda key, dest_path: Path(dest_path).write_bytes(b"pdf-bytes"),
     )
+    def fake_embed_and_upload_all_PDFs(
+        components,
+        qdrant_manager=None,
+        max_number_of_pdfs=None,
+        document_type=None,
+        embedder=None,
+        timeout_seconds=None,
+        max_pages=None,
+    ):
+        """Return the number of components to mimic successful embedding."""
+        return len(components)
+
     monkeypatch.setattr(
         "tasks.update_embeddings.embed_and_upload_all_PDFs",
-        lambda components, qdrant_manager=None, max_number_of_pdfs=None, document_type=None, embedder=None: len(components),
+        fake_embed_and_upload_all_PDFs,
     )
     monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())
     fake_qdrant = FakeQdrantManager()
