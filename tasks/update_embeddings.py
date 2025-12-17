@@ -488,8 +488,13 @@ def embed_and_upload_all_PDFs(
     # Initialize locks for thread critical sections
     qdrant_lock = threading.Lock()
     thread_local = threading.local()
+    progress_lock = threading.Lock()
 
+    # Initialize counters
     processed = 0
+    completed = 0
+    total = len(components_to_process)
+
     max_workers = min(2, len(components_to_process))
 
     # Start processing components in parallel
@@ -520,6 +525,17 @@ def embed_and_upload_all_PDFs(
             except Exception as exc:  # noqa: BLE001
                 qid, component = future_to_component[future]
                 logger.warning(f"Embedding failed for {qid} ({component}) in worker: {exc}")
+            finally:
+                with progress_lock:
+                    completed += 1
+                    remaining = total - completed
+
+                logger.info(
+                    "Embedding progress: %d / %d PDFs completed (%d remaining)",
+                    completed,
+                    total,
+                    remaining,
+                )
 
     logger.info(f"PDF indexing finished; processed {processed} new items")
     return processed
