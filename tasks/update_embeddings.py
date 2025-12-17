@@ -261,6 +261,8 @@ def download_and_embed_and_upload_one_PDF(
     Returns:
         int: 1 when a DB row is written (success or handled failure); 0 otherwise.
     """
+    threading.current_thread().name = f"embed-{qid}"
+
     local_conn = get_connection()
     local_cursor = local_conn.cursor()
 

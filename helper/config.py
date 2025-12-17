@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import yaml
-from prefect import get_run_logger
+import logging.config
 from prefect.blocks.system import Secret
 from prefect.context import get_run_context
 from prefect.exceptions import MissingContextError
@@ -208,3 +208,42 @@ def _apply_env_qdrant_config(config: Dict, logger) -> None:
     updated = {**existing, "url": env_qdrant_url}
     config["qdrant"] = updated
     logger.debug("Qdrant URL loaded from environment variable QDRANT_URL.")
+
+def setup_prefect_logging() -> None:
+    """
+    Apply a logging configuration early so that it is picked up by Prefect's run logger.
+
+    This must be called exactly once and before any Prefect flows, tasks,
+    or get_run_logger() calls are executed.
+
+    """
+    LOGGING_CONFIG = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "prefect_with_threads": {
+                "format": (
+                    "%(asctime)s | %(levelname)s | %(name)s | "
+                    "[thread=%(threadName)s id=%(thread)d] | %(message)s"
+                )
+            }
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "prefect_with_threads",
+                "stream": "ext://sys.stdout",
+            }
+        },
+        "root": {
+            "level": "INFO",
+            "handlers": ["console"],
+        },
+    }
+
+    # Prevent reconfiguration
+    if getattr(setup_prefect_logging, "_configured", False):
+        return
+
+    logging.config.dictConfig(LOGGING_CONFIG)
+    setup_prefect_logging._configured = True

@@ -5,7 +5,8 @@ from prefect.context import get_run_context
 from prefect.exceptions import MissingContextError
 
 from helper import config as config_helper
-from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
+from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path, \
+    setup_prefect_logging
 from helper.constants import DOCUMENT_TYPE_CRAN
 from helper.logger import get_logger_safe
 from tasks.state_pull import pull_state_db_from_lakefs
@@ -16,6 +17,8 @@ from tasks.update_lakefs_file_index import update_file_index_from_lakefs
 from tasks.update_embeddings import update_embeddings, get_software_items_with_pdf_component
 from tasks.state_push import push_state_db_to_lakefs
 
+
+setup_prefect_logging()
 
 @flow(name="start_update_embedding_workflow")
 def start_update_embedding_workflow(
