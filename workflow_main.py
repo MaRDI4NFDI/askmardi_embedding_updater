@@ -52,7 +52,7 @@ def start_update_embedding_workflow(
             max_pages=max_pages,
         )
 
-        #push_state_db_to_lakefs(baseline_counts=baseline_counts)
+        push_state_db_to_lakefs(baseline_counts=baseline_counts)
 
         completed = iteration + 1
         remaining = update_embeddings_loop_iterations - completed
