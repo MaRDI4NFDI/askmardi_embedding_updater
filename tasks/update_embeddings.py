@@ -1,6 +1,8 @@
+import math
 import os
 import tempfile
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from logging import Logger
@@ -494,6 +496,7 @@ def embed_and_upload_all_PDFs(
     processed = 0
     completed = 0
     total = len(components_to_process)
+    start_time = time.monotonic()
 
     max_workers = min(2, len(components_to_process))
 
@@ -526,20 +529,42 @@ def embed_and_upload_all_PDFs(
                 qid, component = future_to_component[future]
                 logger.warning(f"Embedding failed for {qid} ({component}) in worker: {exc}")
             finally:
+
+                # Update progress timers
+                now = time.monotonic()
+                elapsed = now - start_time
                 with progress_lock:
                     completed += 1
                     remaining = total - completed
 
-                logger.info(
-                    "Embedding progress: %d / %d PDFs completed (%d remaining)",
+                # Compute remaining time
+                if completed > 0 and elapsed > 0:
+                    throughput = completed / elapsed          # PDFs per second
+                    eta_seconds = remaining / throughput if throughput > 0 else None
+                else:
+                    eta_seconds = None
+
+                logger.debug(
+                    "Embedding progress: %d / %d PDFs completed (%d remaining) | ETA: %s",
                     completed,
                     total,
                     remaining,
+                    _format_eta(eta_seconds),
                 )
 
     logger.info(f"PDF indexing finished; processed {processed} new items")
     return processed
 
+def _format_eta(seconds: float | None) -> str:
+    if seconds is None or seconds <= 0 or math.isinf(seconds):
+        return "unknown"
+    minutes, seconds = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
 
 def _extract_package_version(component: str, title: str | None = None) -> Tuple[str, str]:
     """
