@@ -239,7 +239,7 @@ def download_and_embed_and_upload_one_PDF(
     thread_local: threading.local,
     logger: Logger,
     timeout_seconds: int =100,
-    max_pages: int = 75,
+    max_pages: int | None = 75,
 ) -> int:
     """
     Process a single (PDF) file (component) - connected to a qid.
@@ -256,7 +256,7 @@ def download_and_embed_and_upload_one_PDF(
         thread_local: Thread-local namespace to hold the embedder instance.
         logger: Prefect/Python logger.
         timeout_seconds: Timeout in seconds for chunking.
-        max_pages: If the PDF has more pages than this, it will be skipped (with timeout failure).
+        max_pages: Optional page limit; if provided and exceeded, the PDF is skipped (with timeout failure).
 
     Returns:
         int: 1 when a DB row is written (success or handled failure); 0 otherwise.
@@ -318,8 +318,8 @@ def download_and_embed_and_upload_one_PDF(
         total_docs = len(documents)
         total_chars = sum(len(doc.page_content) for doc in documents)
 
-        # Check for maximum number of pages
-        if total_docs > max_pages:
+        # Check for maximum number of pages when a limit is configured
+        if max_pages is not None and total_docs > max_pages:
             logger.warning(f"PDF (QID: {qid}) too large: {total_docs} pages exceeds limit of {max_pages}")
             timestamp = datetime.now(timezone.utc).isoformat()
             local_cursor.execute(

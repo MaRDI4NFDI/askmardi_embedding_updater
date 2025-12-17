@@ -1,5 +1,4 @@
 import logging
-import sys
 
 from prefect import get_run_logger
 from prefect.exceptions import MissingContextError
