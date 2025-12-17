@@ -3,6 +3,7 @@ import sqlite3
 from pathlib import Path
 
 from helper.config import get_local_state_db_path
+from helper.logger import get_logger_safe
 
 
 @task(name="init_database")
@@ -10,7 +11,7 @@ def init_db_task() -> None:
     """
     Ensure the SQLite database exists and required tables are present.
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
     resolved_path = str(get_local_state_db_path())
     logger.info(f"Initializing SQLite database at: {resolved_path}")
     _init_db()

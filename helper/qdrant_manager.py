@@ -2,9 +2,10 @@ import uuid
 from typing import Callable, List, Optional
 
 from langchain_core.documents import Document
-from prefect import get_run_logger
 from qdrant_client import QdrantClient, models
 from qdrant_client.http.exceptions import ResponseHandlingException
+
+from helper.logger import get_logger_safe
 
 
 class QdrantManager:
@@ -219,7 +220,7 @@ class QdrantManager:
         This operation is expensive and may time out while Qdrant builds
         the index in the background. Timeouts are treated as non-fatal.
         """
-        logger = get_run_logger()
+        logger = get_logger_safe()
 
         info = self.client.get_collection(self.collection_name)
         payload_schema = info.payload_schema or {}

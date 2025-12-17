@@ -7,6 +7,7 @@ from prefect import task, get_run_logger
 from helper.config import cfg
 from helper.constants import ALLOWED_EXTENSIONS
 from helper.lakefs import get_lakefs_s3_client
+from helper.logger import get_logger_safe
 from tasks.init_db_task import get_connection
 
 
@@ -71,7 +72,7 @@ def update_file_index_from_lakefs() -> None:
       • store full S3 key in component_index table
 
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
     lakefs_cfg = cfg("lakefs")
 
     conn = get_connection()

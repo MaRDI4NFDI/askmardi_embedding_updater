@@ -6,6 +6,7 @@ from prefect import task, get_run_logger
 
 from helper.config import get_local_state_db_path
 from helper.lakefs import upload_state_db, commit_state_db
+from helper.logger import get_logger_safe
 
 
 @task(name="push_state_db_to_lakefs")
@@ -15,7 +16,7 @@ def push_state_db_to_lakefs(
     """
     Upload the local SQLite DB to LakeFS and create a commit when changes occurred.
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
     resolved_path_str = str(get_local_state_db_path())
     logger.debug(f"[push_state_db] Start pushing state DB...")
 

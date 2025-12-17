@@ -1,6 +1,7 @@
 from prefect import task, get_run_logger
 from helper.config import cfg, get_local_state_db_path, get_state_db_filename
 from helper.lakefs import download_state_db
+from helper.logger import get_logger_safe
 
 
 @task(name="pull_state_db_from_lakefs")
@@ -11,7 +12,7 @@ def pull_state_db_from_lakefs() -> bool:
     Returns:
         bool: True if a DB was downloaded; False if none existed.
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
     resolved_path = str(get_local_state_db_path())
 
     lakefs_cfg = cfg("lakefs")

@@ -12,6 +12,7 @@ from prefect import get_run_logger
 
 from helper.config import cfg
 from helper.config import cfg, get_local_state_db_path, get_state_db_filename
+from helper.logger import get_logger_safe
 from helper.sharding import shard_qid
 
 
@@ -20,7 +21,7 @@ def _get_logger():
     Return a Prefect run logger when available, otherwise fall back to stdlib logging.
     """
     try:
-        return get_run_logger()
+        return get_logger_safe()
     except Exception:  # noqa: BLE001
         return logging.getLogger(__name__)
 

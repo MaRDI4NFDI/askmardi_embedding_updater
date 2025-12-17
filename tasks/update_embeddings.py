@@ -12,6 +12,7 @@ from helper.config import cfg
 from helper.constants import DOCUMENT_TYPE_CRAN, DOCUMENT_TYPE_OTHER
 from helper.embedder_tools import EmbedderTools
 from helper.lakefs import download_file
+from helper.logger import get_logger_safe
 from helper.qdrant_manager import QdrantManager
 from tasks.init_db_task import get_connection
 
@@ -66,7 +67,7 @@ def update_embeddings(
     Returns:
         int: Number of new embedding records created.
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
     qdrant_cfg = cfg("qdrant")
     qdrant_manager = QdrantManager(
         url=qdrant_cfg.get("url", "http://localhost:6333"),
@@ -179,7 +180,7 @@ def get_software_items_with_pdf_component() -> int:
     Prints the first 5 QIDs that exist in component_index among those listed
     in software_index, and returns the total overlap count.
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -441,7 +442,7 @@ def embed_and_upload_all_PDFs(
     Returns:
         int: Count of embedding rows written (including handled failures).
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
 
     # Create embedder
     embedding_cfg = cfg("embedding")

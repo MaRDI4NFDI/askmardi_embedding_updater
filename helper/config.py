@@ -9,6 +9,8 @@ from prefect.blocks.system import Secret
 from prefect.context import get_run_context
 from prefect.exceptions import MissingContextError
 
+from helper.logger import get_logger_safe
+
 CONFIG_PATH = Path("config.yaml")
 
 _cache = None  # keep config in memory
@@ -29,7 +31,7 @@ def load_config(config_path: Path = CONFIG_PATH):
         FileNotFoundError: If the expected config file does not exist.
     """
     global _cache
-    logger = _get_logger()
+    logger = get_logger_safe()
     if _cache is not None:
         return _cache
 
@@ -115,7 +117,7 @@ def cfg(section: str, config_path: Path = CONFIG_PATH) -> dict:
         KeyError: If the section is not present in the config file.
     """
     global _cfg_log_once
-    logger = _get_logger()
+    logger = get_logger_safe()
     if not _cfg_log_once:
         logger.debug(f"Checking for config file at: {config_path}")
         _cfg_log_once = True
@@ -124,21 +126,6 @@ def cfg(section: str, config_path: Path = CONFIG_PATH) -> dict:
     if section not in config:
         raise KeyError(f"Missing '{section}' section in config.yaml")
     return config[section]
-
-
-def _get_logger():
-    """Return an available logger for Prefect or local execution.
-
-    Returns:
-        logging.Logger: Prefect run logger when available, otherwise a module logger.
-    """
-    try:
-        return get_run_logger()
-    except MissingContextError:
-        logger = logging.getLogger(__name__)
-        logger.addHandler(logging.NullHandler())
-        return logger
-
 
 def _apply_prefect_lakefs_credentials(config: Dict, logger) -> None:
     """Override LakeFS credentials with Prefect secrets when running in Prefect.

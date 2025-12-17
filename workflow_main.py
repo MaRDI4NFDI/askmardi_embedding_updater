@@ -7,6 +7,7 @@ from prefect.exceptions import MissingContextError
 from helper import config as config_helper
 from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
 from helper.constants import DOCUMENT_TYPE_CRAN
+from helper.logger import get_logger_safe
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
 from tasks.state_push import snapshot_table_counts
@@ -26,7 +27,7 @@ def start_update_embedding_workflow(
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
 
     logger.info(f"Running with: iterations={update_embeddings_loop_iterations}, "
                 f"per_loop={update_embeddings_embeddings_per_loop}")

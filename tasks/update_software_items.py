@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from prefect import task, get_run_logger
 
+from helper.logger import get_logger_safe
 from tasks.init_db_task import get_connection
 from helper.config import cfg
 
@@ -88,7 +89,7 @@ def update_software_item_index_from_mardi(
     Returns:
         list[str]: All QIDs fetched during this run.
     """
-    logger = get_run_logger()
+    logger = get_logger_safe()
 
     wb_cfg = cfg("mardi_kg")
     sparql_cfg = cfg("sparql")
