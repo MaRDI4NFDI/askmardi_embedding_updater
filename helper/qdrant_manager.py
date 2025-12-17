@@ -2,7 +2,9 @@ import uuid
 from typing import Callable, List, Optional
 
 from langchain_core.documents import Document
+from prefect import get_run_logger
 from qdrant_client import QdrantClient, models
+from qdrant_client.http.exceptions import ResponseHandlingException
 
 
 class QdrantManager:
@@ -213,14 +215,32 @@ class QdrantManager:
     def _ensure_text_index(self) -> None:
         """
         Ensure that a full-text payload index exists for page_content.
-        This must be called only at collection setup time.
+
+        This operation is expensive and may time out while Qdrant builds
+        the index in the background. Timeouts are treated as non-fatal.
         """
+        logger = get_run_logger()
+
         info = self.client.get_collection(self.collection_name)
         payload_schema = info.payload_schema or {}
 
-        if "page_content" not in payload_schema:
+        payload_schema_avail = "page_content" in payload_schema
+        logger.debug(f"Full-text index on page_content: {payload_schema_avail} ")
+
+        if payload_schema_avail:
+            return
+
+        try:
+            logger.warning(f"Triggering creation of full-text index on page_content ...")
             self.client.create_payload_index(
                 collection_name=self.collection_name,
                 field_name="page_content",
                 field_schema="text",
+            )
+            logger.info("Triggered creation of full-text index on page_content")
+        except ResponseHandlingException as exc:
+            logger.warning(
+                "Timed out while creating text index for page_content. "
+                "Index creation may still be running in background: %s",
+                exc,
             )

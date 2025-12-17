@@ -48,6 +48,8 @@ update_embeddings   [Prefect task, entry point]
 def update_embeddings(
     max_number_of_pdfs: int | None = None,
     document_type: str = DOCUMENT_TYPE_OTHER,
+    timeout_seconds: int | None = None,
+    max_pages: int | None = None,
 ) -> int:
     """
     MAIN ENTRY POINT:
@@ -58,6 +60,8 @@ def update_embeddings(
     Args:
         max_number_of_pdfs: Optional cap on documents to embed during this run.
         document_type: Label for the document type to store in metadata.
+        timeout_seconds: When the chunking/embedding of a PDF should fail due to timeout.
+        max_pages: Maximum number of pages a PDF to embed can have, before skipping it.
 
     Returns:
         int: Number of new embedding records created.
@@ -148,6 +152,8 @@ def update_embeddings(
         max_number_of_pdfs=max_number_of_pdfs,
         document_type=document_type,
         embedder=embedder,
+        timeout_seconds=timeout_seconds,
+        max_pages=max_pages,
     )
 
     # Compute changes
@@ -266,7 +272,7 @@ def download_and_embed_and_upload_one_PDF(
         local_conn.close()
         return 0
 
-    logger.debug(f"Downloading and Embedding PDF for QID: {qid} ...")
+    logger.debug(f"Downloading and Embedding PDF for QID: {qid} (timeout: {timeout_seconds}, max_pages: {max_pages})...")
 
     tmp_path = None
     try:
@@ -310,8 +316,22 @@ def download_and_embed_and_upload_one_PDF(
 
         total_docs = len(documents)
         total_chars = sum(len(doc.page_content) for doc in documents)
+
+        # Check for maximum number of pages
         if total_docs > max_pages:
-            raise TimeoutError(f"PDF (QID: {qid}) too large: {total_docs} pages exceeds limit of {max_pages}")
+            logger.warning(f"PDF (QID: {qid}) too large: {total_docs} pages exceeds limit of {max_pages}")
+            timestamp = datetime.now(timezone.utc).isoformat()
+            local_cursor.execute(
+                """
+                INSERT OR REPLACE INTO embeddings_index
+                    (qid, component, updated_at, status)
+                VALUES (?, ?, ?, ?)
+                """,
+                (qid, component, timestamp, f"failed - PDF too large ({total_docs} pages)"),
+            )
+            local_conn.commit()
+            return 1
+
         logger.info(
             "Starting semantic chunking for %s: %d pages, total_chars=%d, timeout=%ss",
             qid,
@@ -402,6 +422,8 @@ def embed_and_upload_all_PDFs(
     max_number_of_pdfs: int | None = None,
     document_type: str = DOCUMENT_TYPE_OTHER,
     embedder: EmbedderTools | None = None,
+    timeout_seconds: int | None = None,
+    max_pages: int | None = None,
 ) -> int:
     """
     Build embeddings for all given PDFs (components) for the current loop (e.g. list of 50 PDFs)
@@ -413,6 +435,8 @@ def embed_and_upload_all_PDFs(
         max_number_of_pdfs: Max number of documents to process
         document_type: Label for the document type to store in metadata.
         embedder: Optional shared EmbedderTools instance; if None, a new one is created.
+        timeout_seconds: When the chunking/embedding of a PDF should fail due to timeout.
+        max_pages: Maximum number of pages a PDF to embed can have, before skipping it.
 
     Returns:
         int: Count of embedding rows written (including handled failures).
@@ -479,6 +503,8 @@ def embed_and_upload_all_PDFs(
                 qdrant_lock,
                 thread_local,
                 logger,
+                timeout_seconds,
+                max_pages,
             ): (qid, component)
             for qid, component in components_to_process
         }

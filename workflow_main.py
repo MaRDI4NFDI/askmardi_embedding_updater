@@ -18,8 +18,10 @@ from tasks.state_push import push_state_db_to_lakefs
 
 @flow(name="start_update_embedding_workflow")
 def start_update_embedding_workflow(
-        update_embeddings_loop_iterations: int = 10,
-        update_embeddings_embeddings_per_loop: int = 100,
+        update_embeddings_loop_iterations: int = 2,
+        update_embeddings_embeddings_per_loop: int = 10,
+        timeout_seconds: int = 100,
+        max_pages: int = 100,
 ):
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
@@ -44,9 +46,12 @@ def start_update_embedding_workflow(
 
         update_embeddings(
             max_number_of_pdfs=update_embeddings_embeddings_per_loop,
-            document_type=DOCUMENT_TYPE_CRAN)
+            document_type=DOCUMENT_TYPE_CRAN,
+            timeout_seconds=timeout_seconds,
+            max_pages=max_pages,
+        )
 
-        push_state_db_to_lakefs(baseline_counts=baseline_counts)
+        #push_state_db_to_lakefs(baseline_counts=baseline_counts)
 
         completed = iteration + 1
         remaining = update_embeddings_loop_iterations - completed
