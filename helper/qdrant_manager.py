@@ -67,25 +67,38 @@ class QdrantManager:
             hnsw_config=models.HnswConfigDiff(on_disk=True),
         )
 
+        # Ensure full-text index (once)
+        self._ensure_text_index()
+
     def ensure_collection(self, vector_size: int) -> None:
         """
-        Create the collection if it does not exist already.
+        Ensure that the managed Qdrant collection exists and is fully initialized.
+
+        If the collection does not yet exist, it is created with the specified
+        vector configuration. Regardless of whether the collection already exists,
+        this method also ensures that required payload indexes (e.g. a full-text
+        index for lexical search) are present.
 
         Args:
-            vector_size: Dimensionality of the embeddings to store.
-        """
-        if self._collection_exists():
-            return
+            vector_size: Dimensionality of the embedding vectors stored in the
+                collection.
 
-        self.client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=models.VectorParams(
-                size=vector_size,
-                distance=self.distance,
-                on_disk=True,
-            ),
-            hnsw_config=models.HnswConfigDiff(on_disk=True),
-        )
+        Returns:
+            None
+        """
+        if not self._collection_exists():
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=models.VectorParams(
+                    size=vector_size,
+                    distance=self.distance,
+                    on_disk=True,
+                ),
+                hnsw_config=models.HnswConfigDiff(on_disk=True),
+            )
+
+        # Always ensure text index
+        self._ensure_text_index()
 
     def embed_and_upload_documents(
         self,
@@ -196,3 +209,18 @@ class QdrantManager:
         collections = self.client.get_collections()
         collection_names = {collection.name for collection in collections.collections}
         return self.collection_name in collection_names
+
+    def _ensure_text_index(self) -> None:
+        """
+        Ensure that a full-text payload index exists for page_content.
+        This must be called only at collection setup time.
+        """
+        info = self.client.get_collection(self.collection_name)
+        payload_schema = info.payload_schema or {}
+
+        if "page_content" not in payload_schema:
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="page_content",
+                field_schema="text",
+            )
