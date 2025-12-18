@@ -9,15 +9,17 @@ from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
     setup_prefect_logging
 from helper.constants import DOCUMENT_TYPE_CRAN
 from helper.logger import get_logger_safe
-from helper.planner_tools import get_plan_from_lakefs
+from helper.planner_tools import get_plan_from_lakefs, get_cran_items_having_doc_pdf
 from tasks.state_pull import pull_state_db_from_lakefs
-from tasks.init_db_task import init_db_task
+from tasks.init_db_task import init_db_task, get_connection
 from tasks.state_push import snapshot_table_counts
 from tasks.update_software_items import update_software_item_index_from_mardi
 from tasks.update_lakefs_file_index import update_file_index_from_lakefs
-from tasks.update_embeddings import update_embeddings, get_software_items_with_pdf_component
+from tasks.update_embeddings import update_embeddings, count_software_items_with_pdf_component
 from tasks.state_push import push_state_db_to_lakefs
 
+EXEC_MODE_USE_STATEDB = "EXEC_MODE_USE_STATEDB"
+EXEC_MODE_USE_LOCAL_PLAN = "EXEC_MODE_USE_LOCAL_PLAN"
 
 setup_prefect_logging()
 
@@ -43,6 +45,11 @@ def start_update_embedding_workflow(
     """
     logger = get_logger_safe()
 
+    if worker_plan_name:
+        EXEC_MODE = EXEC_MODE_USE_LOCAL_PLAN
+    else:
+        EXEC_MODE = EXEC_MODE_USE_STATEDB
+
     logger.info(f"Running with: iterations={update_embeddings_loop_iterations}, "
                 f"per_loop={update_embeddings_embeddings_per_loop}")
 
@@ -52,14 +59,14 @@ def start_update_embedding_workflow(
     # Check whether a plan exists for this run
     # A plan contains the files that should be embedded without the need
     # to use the state database - this allows true parallel execution.
-    if worker_plan_name is not None:
+    if EXEC_MODE == EXEC_MODE_USE_LOCAL_PLAN:
         worker_plan = get_plan_from_lakefs(worker_plan_name)
         if not worker_plan:
             logger.error(f"Worker plan {worker_plan_name} not found. Exiting.")
             SystemExit(1)
 
     # Initialize "normal" behaviour, based on lakeFS state database
-    if worker_plan_name is not None:
+    if EXEC_MODE == EXEC_MODE_USE_STATEDB:
         pulled = pull_state_db_from_lakefs()
         if not pulled:
             init_db_task()
@@ -67,6 +74,11 @@ def start_update_embedding_workflow(
         baseline_counts = snapshot_table_counts()
         update_software_item_index_from_mardi()
         update_file_index_from_lakefs()
+        software_items_with_pdf_component_count = count_software_items_with_pdf_component.fn()
+        logger.info(f"QIDs with components: {software_items_with_pdf_component_count}")
+
+        # Get items that exist in KG and have a documentation pdf in lakefs
+        cran_items_having_doc_pdf = get_cran_items_having_doc_pdf()
 
     # Start actual workflow tasks
     for iteration in range(update_embeddings_loop_iterations):
@@ -76,9 +88,13 @@ def start_update_embedding_workflow(
             document_type=DOCUMENT_TYPE_CRAN,
             timeout_seconds=timeout_seconds,
             max_pages=max_pages,
+            cran_items_having_doc_pdf=cran_items_having_doc_pdf,
+            worker_plan=worker_plan
         )
 
-        push_state_db_to_lakefs(baseline_counts=baseline_counts)
+        # Only push new state db if in this exec mode
+        if EXEC_MODE == EXEC_MODE_USE_STATEDB:
+            push_state_db_to_lakefs(baseline_counts=baseline_counts)
 
         completed = iteration + 1
         remaining = update_embeddings_loop_iterations - completed

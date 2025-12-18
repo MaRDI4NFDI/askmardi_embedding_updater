@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from logging import Logger
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 from prefect import get_run_logger, task
 
@@ -53,6 +53,8 @@ def update_embeddings(
     document_type: str = DOCUMENT_TYPE_OTHER,
     timeout_seconds: int | None = None,
     max_pages: int | None = None,
+    cran_items_having_doc_pdf: List[Any] | None = None,
+    worker_plan: str | None = None,
 ) -> int:
     """
     MAIN ENTRY POINT:
@@ -70,6 +72,12 @@ def update_embeddings(
         int: Number of new embedding records created.
     """
     logger = get_logger_safe()
+
+    # Check whether any of the plans is given
+    if cran_items_having_doc_pdf is None and worker_plan is None:
+        logger.error( "No items to process given." )
+        return None
+
     qdrant_cfg = cfg("qdrant")
     qdrant_manager = QdrantManager(
         url=qdrant_cfg.get("url", "http://localhost:6333"),
@@ -90,67 +98,21 @@ def update_embeddings(
     embedder = EmbedderTools(model_name=model_name, model_kwargs={"device": "cpu"})
 
     # First get an overview
-    current_points = None
-    try:
-        current_points = qdrant_manager.collection_size()
-        logger.info(
-            "Qdrant collection '%s' currently holds %s vectors.",
-            qdrant_cfg.get("collection", "software_docs"),
-            f"{current_points:,}",
-        )
-    except Exception as exc:
-        message = str(exc)
-        if "doesn't exist" in message or "Not found" in message or "not exist" in message:
-            logger.warning("Qdrant collection missing; creating it now.")
-            qdrant_manager.ensure_collection(vector_size=embedder.embedding_dimension)
-            try:
-                current_points = qdrant_manager.collection_size()
-            except Exception:
-                current_points = None
-        else:
-            logger.warning(f"Could not read Qdrant collection size: {exc}")
-
-    get_software_items_with_pdf_component.fn()
-
-    logger.info("Updating embeddings_index from component_index")
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Get components that have a QIDs in software_index and
-    # a matching entry in the component_index (=files in lakeFS).
-    cursor.execute(
-        """
-        SELECT si.qid, ci.component
-        FROM software_index si
-        JOIN component_index ci ON ci.qid = si.qid
-        """
-    )
-    components = cursor.fetchall()
-    total_components = len(components)
-
-    cursor.execute(
-        "SELECT COUNT(*) FROM embeddings_index"
-    )
-    already_embedded = cursor.fetchone()[0]
-    remaining = max(total_components - already_embedded, 0)
+    collection_name = qdrant_cfg.get("collection", "software_docs")
+    vector_size=embedder.embedding_dimension
+    current_points = _get_vector_count_from_qdrant( qdrant_manager, logger, collection_name, vector_size )
 
     logger.info(
-        f"Found {total_components:,} component records; {remaining:,} pending embeddings"
+        "Qdrant collection '%s' currently holds %s vectors.",
+        collection_name,
+        f"{current_points:,}",
     )
-
-    if not components:
-        conn.close()
-        logger.info("No components to process; embeddings_index unchanged.")
-        return 0
-
-    conn.close()
 
     logger.info( f"Starting downloading & embedding of {max_number_of_pdfs} PDFs of type {document_type}." )
 
     # Call to main embedding logic
     processed = embed_and_upload_all_PDFs(
-        components=components,
+        components=cran_items_having_doc_pdf,
         qdrant_manager=qdrant_manager,
         max_number_of_pdfs=max_number_of_pdfs,
         document_type=document_type,
@@ -174,15 +136,14 @@ def update_embeddings(
 
     return processed
 
-@task(name="log_qids_with_components")
-def get_software_items_with_pdf_component() -> int:
+@task(name="count_qids_with_components")
+def count_software_items_with_pdf_component() -> int:
     """
     Log the overlap between software_index and component_index.
 
     Prints the first 5 QIDs that exist in component_index among those listed
     in software_index, and returns the total overlap count.
     """
-    logger = get_logger_safe()
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -198,8 +159,6 @@ def get_software_items_with_pdf_component() -> int:
     conn.close()
 
     total = len(matching)
-    sample = matching[:5]
-    logger.info(f"QIDs with components ({total} total). Sample: {sample}")
     return total
 
 
@@ -591,3 +550,26 @@ def _extract_package_version(component: str, title: str | None = None) -> Tuple[
         if possible_pkg:
             return possible_pkg, "unknown"
     return "unknown", "unknown"
+
+def _get_vector_count_from_qdrant(
+        qdrant_manager: QdrantManager,
+        logger: Logger,
+        collection: str,
+        vector_size: int) -> int:
+    current_points = None
+    try:
+        current_points = qdrant_manager.collection_size()
+    except Exception as exc:
+        message = str(exc)
+        if "doesn't exist" in message or "Not found" in message or "not exist" in message:
+            logger.warning("Qdrant collection missing; creating it now.")
+            qdrant_manager.ensure_collection(vector_size=vector_size)
+            try:
+                current_points = qdrant_manager.collection_size()
+            except Exception:
+                current_points = None
+        else:
+            logger.warning(f"Could not read Qdrant collection size: {exc}")
+
+    return current_points
+
