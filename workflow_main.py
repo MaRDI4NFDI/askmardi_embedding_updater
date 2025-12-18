@@ -85,16 +85,25 @@ def start_update_embedding_workflow(
             f"Found {total_components:,} component records; {total_components:,} pending embeddings"
         )
 
-    # Start actual workflow tasks
+    # Start actual workflow tasks - OUTER LOOP
     for iteration in range(update_embeddings_loop_iterations):
 
-        update_embeddings(
-            max_number_of_pdfs=update_embeddings_embeddings_per_loop,
-            document_type=DOCUMENT_TYPE_CRAN,
-            timeout_seconds=timeout_seconds,
-            max_pages=max_pages,
-            cran_items_having_doc_pdf=cran_items_having_doc_pdf,
-        )
+        # Split into batches for this iteration - INNER LOOP
+        batches = [
+            cran_items_having_doc_pdf[i:i + update_embeddings_embeddings_per_loop]
+            for i in range(0, len(cran_items_having_doc_pdf), update_embeddings_embeddings_per_loop)
+        ]
+
+        for batch in batches:
+            if not batch:
+                continue
+
+            update_embeddings(
+                document_type=DOCUMENT_TYPE_CRAN,
+                timeout_seconds=timeout_seconds,
+                max_pages=max_pages,
+                cran_items_having_doc_pdf=batch,
+            )
 
         # Only push new state db if in this exec mode
         if EXEC_MODE == EXEC_MODE_USE_STATEDB:
