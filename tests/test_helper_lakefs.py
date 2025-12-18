@@ -4,30 +4,47 @@ from helper import lakefs
 
 
 def test_download_state_db_backs_up_existing(tmp_path, monkeypatch):
+    """Ensure an existing DB is backed up and replaced when downloading from LakeFS."""
     local_path = tmp_path / "state.db"
     local_path.write_text("old-data")
 
     class FakeObjectsApi:
+        """Stub objects API for LakeFS interactions."""
+
         def stat_object(self, repo, branch, path):
+            """Pretend the object exists."""
             return True
 
         def get_object(self, repository, ref, path, _preload_content=False):
+            """Return a fake response containing new data."""
             class FakeResponse:
+                """Stubbed HTTP response wrapper."""
+
                 def read(self):
+                    """Return fake object bytes."""
                     return b"new-data"
 
             return FakeResponse()
 
     class FakeLakefs:
+        """Container for the fake objects API."""
+
         def __init__(self):
+            """Attach the fake objects API."""
             self.objects_api = FakeObjectsApi()
 
     class FakeDatetime:
+        """Stub datetime that returns a fixed UTC time."""
+
         @staticmethod
         def utcnow():
+            """Return a fixed timestamp object with strftime."""
             class FakeNow:
+                """Represents the fixed current time."""
+
                 @staticmethod
                 def strftime(fmt):
+                    """Return a deterministic timestamp string."""
                     return "20240101T120000Z"
 
             return FakeNow()

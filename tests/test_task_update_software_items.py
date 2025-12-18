@@ -17,6 +17,7 @@ from tasks.update_software_items import (
 
 
 def test_update_software_items_with_mocks(tmp_path, monkeypatch):
+    """Mocked test to ensure software items are fetched and stored in batches."""
     db_path = tmp_path / "state.db"
     monkeypatch.setattr("tasks.init_db_task.get_local_state_db_path", lambda: db_path)
     monkeypatch.setattr("helper.config.get_local_state_db_path", lambda: db_path)
@@ -26,6 +27,7 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
     returned_queries = []
 
     def fake_cfg(section: str) -> dict:
+        """Return canned config sections for tests."""
         if section == "mardi_kg":
             return {"sparql_endpoint": "http://example.test"}
         if section == "sparql":
@@ -41,6 +43,7 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
     next_idx = {"start": 0}
 
     def fake_run_query(endpoint: str, query: str, logger, max_retries: int, timeout: int) -> List[str]:
+        """Return slices of the pool to simulate paginated SPARQL results."""
         returned_queries.append(query)
 
         limit_val = None
@@ -85,6 +88,7 @@ def test_update_software_items_with_mocks(tmp_path, monkeypatch):
 
 @pytest.mark.integration
 def test_run_query_against_real_endpoint(monkeypatch):
+    """Integration test hitting the real SPARQL endpoint when config is present."""
 
     config_path = Path(__file__).resolve().parent.parent / "config.yaml"
 

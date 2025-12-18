@@ -5,9 +5,11 @@ from tasks.state_pull import pull_state_db_from_lakefs
 
 
 def test_pull_state_db_from_lakefs_invokes_download(monkeypatch):
+    """Verify pull_state_db_from_lakefs triggers a download and returns True."""
     calls = []
 
     def fake_download_state_db():
+        """Record invocation and simulate success."""
         calls.append("called")
         return True
 

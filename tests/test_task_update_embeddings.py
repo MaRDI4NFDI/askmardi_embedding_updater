@@ -10,6 +10,7 @@ from tasks.update_embeddings import update_embeddings
 
 @pytest.mark.integration
 def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
+    """Integration-style smoke test for update_embeddings pulling from component_index."""
 
     config_path = Path(__file__).resolve().parent.parent / "config.yaml"
 

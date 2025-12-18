@@ -5,7 +5,10 @@ from helper import embedder_tools
 
 
 class SlowChunker:
+    """Chunker that intentionally sleeps to simulate slow processing."""
+
     def split_documents(self, docs):
+        """Return documents after a deliberate delay."""
         import time
 
         time.sleep(1)

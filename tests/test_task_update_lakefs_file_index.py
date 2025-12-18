@@ -6,6 +6,7 @@ from tasks.update_lakefs_file_index import update_file_index_from_lakefs
 
 
 def test_update_lakefs_file_index_scans_s3_gateway(tmp_path, monkeypatch):
+    """Verify lakefs file index task scans S3 gateway and writes components."""
     db_path = tmp_path / "state.db"
     import tasks.init_db_task as init_module
     init_module.get_local_state_db_path = lambda: db_path
@@ -22,17 +23,22 @@ def test_update_lakefs_file_index_scans_s3_gateway(tmp_path, monkeypatch):
     ]
 
     class FakePaginator:
+        """Stub paginator yielding predefined pages."""
         def paginate(self, Bucket, Prefix):
+            """Return the canned page list while asserting bucket/prefix."""
             assert Bucket == "repo"
             assert Prefix == "main/"
             return pages
 
     class FakeClient:
+        """Stub S3 client returning a fake paginator."""
         def get_paginator(self, name):
+            """Return a fake paginator for the requested operation."""
             assert name == "list_objects_v2"
             return FakePaginator()
 
     def fake_get_s3_client():
+        """Return the fake S3 client for monkeypatching."""
         return FakeClient()
 
     monkeypatch.setattr(

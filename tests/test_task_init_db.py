@@ -4,6 +4,7 @@ from tasks.init_db_task import _init_db
 
 
 def test_init_db_creates_expected_tables(tmp_path):
+    """Ensure the init DB task creates all required tables."""
     db_path = tmp_path / "state.db"
 
     # Patch the path resolver to target the temp DB.

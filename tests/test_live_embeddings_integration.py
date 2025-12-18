@@ -165,6 +165,7 @@ def test_live_rag_chain_with_qdrant():
 
 @pytest.mark.integration
 def test_llm_health_check_runs():
+    """Ensure the live LLM endpoint responds to a simple health check."""
 
     config_path = Path(__file__).resolve().parent.parent / "config.yaml"
 

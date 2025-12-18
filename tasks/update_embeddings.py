@@ -66,6 +66,7 @@ def update_embeddings(
         document_type: Label for the document type to store in metadata.
         timeout_seconds: When the chunking/embedding of a PDF should fail due to timeout.
         max_pages: Maximum number of pages a PDF to embed can have, before skipping it.
+        cran_items_having_doc_pdf: List of items (QID/pdf file path) to be processed
 
     Returns:
         int: Number of new embedding records created.
@@ -77,11 +78,13 @@ def update_embeddings(
         logger.error( "No items to process given." )
         return None
 
+
     qdrant_cfg = cfg("qdrant")
+    collection_name = qdrant_cfg.get("collection", "sandbox")
     qdrant_manager = QdrantManager(
         url=qdrant_cfg.get("url", "http://localhost:6333"),
         api_key=qdrant_cfg.get("api_key"),
-        collection_name=qdrant_cfg.get("collection", "software_docs"),
+        collection_name=collection_name,
         distance=qdrant_cfg.get("distance", "COSINE"),
     )
 
@@ -97,9 +100,8 @@ def update_embeddings(
     embedder = EmbedderTools(model_name=model_name, model_kwargs={"device": "cpu"})
 
     # First get an overview
-    collection_name = qdrant_cfg.get("collection", "software_docs")
     vector_size=embedder.embedding_dimension
-    current_points = _get_vector_count_from_qdrant( qdrant_manager, logger, collection_name, vector_size )
+    current_points = _get_vector_count_from_qdrant( qdrant_manager, logger, vector_size )
 
     logger.info(
         "Qdrant collection '%s' currently holds %s vectors.",
@@ -424,27 +426,6 @@ def embed_and_upload_all_PDFs(
 
     qdrant_manager.ensure_collection(vector_size=base_embedder.embedding_dimension)
 
-    # Pre-filter to skip already embedded components and respect max_number_of_pdfs.
-    # Components are the files from lakeFS connected to a QID item, e.g. CRAN documentation or paper PDFs/HTML files
-    conn = get_connection()
-    cursor = conn.cursor()
-    components_to_process: List[Tuple[str, str]] = []
-    for qid, component in components:
-        cursor.execute(
-            "SELECT 1 FROM embeddings_index WHERE qid = ? AND component = ? LIMIT 1",
-            (qid, component),
-        )
-        if cursor.fetchone():
-            continue
-        components_to_process.append((qid, component))
-        if max_number_of_pdfs is not None and len(components_to_process) >= max_number_of_pdfs:
-            break
-    conn.close()
-
-    if not components_to_process:
-        logger.info("No new PDFs require embedding; skipping indexing step.")
-        return 0
-
     # Initialize locks for thread critical sections
     qdrant_lock = threading.Lock()
     thread_local = threading.local()
@@ -453,10 +434,10 @@ def embed_and_upload_all_PDFs(
     # Initialize counters
     processed = 0
     completed = 0
-    total = len(components_to_process)
+    total = len(components)
     start_time = time.monotonic()
 
-    max_workers = min(2, len(components_to_process))
+    max_workers = min(2, len(components))
 
     # Start processing components in parallel
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -475,7 +456,7 @@ def embed_and_upload_all_PDFs(
                 timeout_seconds,
                 max_pages,
             ): (qid, component)
-            for qid, component in components_to_process
+            for qid, component in components
         }
 
         # Collect results
@@ -514,6 +495,15 @@ def embed_and_upload_all_PDFs(
     return processed
 
 def _format_eta(seconds: float | None) -> str:
+    """
+    Convert an ETA in seconds into a human-readable string.
+
+    Args:
+        seconds: Number of seconds remaining, or None for unknown.
+
+    Returns:
+        str: Friendly ETA such as "3m 20s" or "unknown".
+    """
     if seconds is None or seconds <= 0 or math.isinf(seconds):
         return "unknown"
     minutes, seconds = divmod(int(seconds), 60)
@@ -553,8 +543,18 @@ def _extract_package_version(component: str, title: str | None = None) -> Tuple[
 def _get_vector_count_from_qdrant(
         qdrant_manager: QdrantManager,
         logger: Logger,
-        collection: str,
         vector_size: int) -> int:
+    """
+    Ensure the target collection exists and return its current vector count.
+
+    Args:
+        qdrant_manager: Qdrant client wrapper.
+        logger: Logger for status messages.
+        vector_size: Expected dimensionality when creating the collection.
+
+    Returns:
+        int | None: Current number of vectors in the collection, or None if unavailable.
+    """
     current_points = None
     try:
         current_points = qdrant_manager.collection_size()

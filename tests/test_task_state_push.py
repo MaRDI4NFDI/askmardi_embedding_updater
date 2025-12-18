@@ -5,13 +5,16 @@ from tasks.state_push import push_state_db_to_lakefs
 
 
 def test_push_state_db_to_lakefs_uploads_and_commits(monkeypatch):
+    """Ensure push task uploads the DB and issues a commit message."""
     uploads = []
     commits = []
 
     def fake_upload():
+        """Record upload invocation."""
         uploads.append("called")
 
     def fake_commit(message: str):
+        """Record commit message passed by the task."""
         commits.append(message)
 
     monkeypatch.setattr("tasks.state_push.upload_state_db", fake_upload)

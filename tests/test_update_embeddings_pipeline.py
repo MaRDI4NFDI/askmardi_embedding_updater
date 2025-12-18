@@ -12,6 +12,7 @@ from tasks.update_embeddings import embed_and_upload_all_PDFs, update_embeddings
 
 @pytest.fixture()
 def temp_db(tmp_path, monkeypatch):
+    """Create a temporary state DB and patch helpers to point to it."""
     db_path = tmp_path / "state.db"
     monkeypatch.setattr("tasks.init_db_task.get_local_state_db_path", lambda: db_path)
     monkeypatch.setattr("helper.config.get_local_state_db_path", lambda: db_path)
@@ -21,42 +22,57 @@ def temp_db(tmp_path, monkeypatch):
 
 
 class FakeS3Client:
+    """Stub S3 client returning predefined bytes."""
+
     def __init__(self, data: bytes):
+        """Store payload bytes and reset call log."""
         self.data = data
         self.calls = []
 
     def get_object(self, Bucket, Key):
+        """Record the call and return a fake body stream."""
         self.calls.append((Bucket, Key))
         return {"Body": io.BytesIO(self.data)}
 
 
 class FakeEmbedder:
+    """Simple embedder stub with deterministic outputs."""
+
     def __init__(self):
+        """Initialize embedding dimension and chunk defaults."""
         self.embedding_dimension = 3
         self.chunk_params = {"min_chunk_size": 250}
 
     def load_pdf_file(self, path):
+        """Return a single-page document for testing."""
         return [Document(page_content="test content", metadata={})]
 
     def split_and_filter(self, documents=None, min_length=250, **kwargs):
+        """Return one chunk that meets the minimum length requirement."""
         return [Document(page_content="x" * 300, metadata=documents[0].metadata.copy())]
 
     def embed_text(self, text):
+        """Return a fixed embedding vector for text."""
         return [1.0, 2.0, 3.0]
 
     def embed_document(self, doc):
+        """Return a fixed embedding vector for a document."""
         return [1.0, 2.0, 3.0]
 
 
-
 class FakeQdrantManager:
+    """Stubbed Qdrant manager that records uploads."""
+
     def __init__(self, **kwargs):
+        """Initialize with empty upload log."""
         self.uploaded = []
 
     def is_available(self):
+        """Always report the service as reachable."""
         return True
 
     def ensure_collection(self, vector_size: int):
+        """No-op collection creation for tests."""
         return None
 
     def collection_size(self):
@@ -64,10 +80,11 @@ class FakeQdrantManager:
         return 0
 
     def embed_and_upload_documents(self, documents, embed_fn, id_prefix=None):
+        """Delegate to upload_documents to mimic upload behavior."""
         return self.upload_documents(documents, embed_fn, id_prefix=id_prefix)
 
     def upload_documents(self, documents, embed_fn, id_prefix=None):
-        # simulate full behavior without Qdrant client
+        """Simulate uploading documents by invoking embed_fn and logging count."""
         for idx, doc in enumerate(documents):
             _ = embed_fn(doc)  # ensure callable works
             assert hasattr(doc, "metadata")
@@ -77,6 +94,7 @@ class FakeQdrantManager:
 
 
 def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
+    """End-to-end-ish test of embedding and DB update with stubs."""
     conn = sqlite3.connect(str(temp_db))
     conn.execute(
         """
@@ -133,6 +151,7 @@ def test_perform_pdf_indexing_inserts_embeddings(monkeypatch, temp_db):
 
 
 def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
+    """Ensure update_embeddings reports processed count when embedding succeeds."""
     conn = sqlite3.connect(str(temp_db))
     conn.executemany(
         """
