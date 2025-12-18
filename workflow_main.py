@@ -9,7 +9,7 @@ from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
     setup_prefect_logging
 from helper.constants import DOCUMENT_TYPE_CRAN
 from helper.logger import get_logger_safe
-from helper.planner_tools import ensure_plan_exists
+from helper.planner_tools import plan_exists_on_lakefs
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
 from tasks.state_push import snapshot_table_counts
@@ -27,7 +27,7 @@ def start_update_embedding_workflow(
         update_embeddings_embeddings_per_loop: int = 10,
         timeout_seconds: int = 100,
         max_pages: int = 100,
-        use_plan: str | None = None,
+        worker_plan_name: str | None = None,
 ):
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
@@ -37,7 +37,7 @@ def start_update_embedding_workflow(
         update_embeddings_embeddings_per_loop: Number of PDFs processed per iteration.
         timeout_seconds: Chunking/embedding timeout per PDF.
         max_pages: Maximum pages allowed per PDF before skipping.
-        use_plan: Optional plan filename (e.g., "plan_localworker_01") looked up under
+        worker_plan_name: Optional plan filename (e.g., "plan_localworker_01") looked up under
             the LakeFS planned/ prefix. If provided and not found, the workflow exits
             with an error.
     """
@@ -47,19 +47,25 @@ def start_update_embedding_workflow(
                 f"per_loop={update_embeddings_embeddings_per_loop}")
 
     state_db_path: str = str(get_local_state_db_path())
-
     Path(state_db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    pulled = pull_state_db_from_lakefs()
-    if not pulled:
-        init_db_task()
+    # Check whether a plan exists for this run
+    # A plan contains the files that should be embedded without the need
+    # to use the state database - this allows true parallel execution.
+    if worker_plan_name is not None:
+        if not plan_exists_on_lakefs(worker_plan_name):
+            logger.error(f"Worker plan {worker_plan_name} not found. Exiting.")
+            SystemExit(1)
 
-    if use_plan is not None:
-        ensure_plan_exists(use_plan, logger)
+    # Initialize "normal" behaviour, based on lakeFS state database
+    if worker_plan_name is not None:
+        pulled = pull_state_db_from_lakefs()
+        if not pulled:
+            init_db_task()
 
-    baseline_counts = snapshot_table_counts()
-    update_software_item_index_from_mardi()
-    update_file_index_from_lakefs()
+        baseline_counts = snapshot_table_counts()
+        update_software_item_index_from_mardi()
+        update_file_index_from_lakefs()
 
     for iteration in range(update_embeddings_loop_iterations):
 
