@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from helper.planner_tools import get_cran_items_having_doc_pdf
 from tasks.init_db_task import _init_db
 from tasks.update_embeddings import update_embeddings
 
@@ -60,7 +61,8 @@ def test_update_embeddings_syncs_from_component_index(tmp_path, monkeypatch):
         lambda **_: type("Q", (), {"is_available": lambda self: True})(),
     )
 
-    processed = update_embeddings.fn()
+    cran_items = get_cran_items_having_doc_pdf()
+    processed = update_embeddings.fn(cran_items_having_doc_pdf=cran_items)
 
     conn = sqlite3.connect(str(db_path))
     cur = conn.execute("SELECT COUNT(*) FROM embeddings_index")

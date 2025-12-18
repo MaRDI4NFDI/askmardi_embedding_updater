@@ -217,5 +217,9 @@ def test_update_embeddings_returns_processed_count(monkeypatch, temp_db):
     monkeypatch.setattr("tasks.update_embeddings.EmbedderTools", lambda *a, **k: FakeEmbedder())
     monkeypatch.setattr("tasks.update_embeddings.get_connection", lambda: sqlite3.connect(str(temp_db)))
 
-    processed = update_embeddings.fn()
+    from helper.planner_tools import get_cran_items_having_doc_pdf
+
+    cran_items = get_cran_items_having_doc_pdf()
+
+    processed = update_embeddings.fn(cran_items_having_doc_pdf=cran_items)
     assert processed == 2
