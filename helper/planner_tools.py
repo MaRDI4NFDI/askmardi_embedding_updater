@@ -5,6 +5,7 @@ Utilities for plan-based workflow execution.
 import logging
 from pathlib import Path
 from typing import List, Any
+import json
 
 from helper import config as config_helper
 from helper.lakefs import get_lakefs_client
@@ -17,7 +18,8 @@ def get_plan_from_lakefs(plan_name: str) -> str:
     Download and return the contents of a plan file from LakeFS.
 
     Args:
-        plan_name: Plan identifier, with or without .json (e.g., "plan_localworker_01").
+        plan_name (str): Plan identifier, with or without .json
+            (e.g., "plan_localworker_01").
 
     Returns:
         str | None: The JSON string content of the plan file, or None if not found.
@@ -49,14 +51,19 @@ def get_plan_from_lakefs(plan_name: str) -> str:
 
 
 def get_cran_items_having_doc_pdf() -> List[Any]:
+    """
+    Retrieve all (qid, component) rows where documentation PDFs exist.
+
+    Returns:
+        list[tuple[str, str]]: Tuples of QID and component path for CRAN docs
+        that are present in LakeFS and referenced in the KG.
+    """
     logger = get_logger_safe()
 
     logger.info("Updating embeddings_index from component_index")
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Get components that have a QIDs in table software_index (=CRAN package exists in MaRDI KG) and
-    # a matching entry in the table component_index (=PDF documentation file exists in lakeFS).
     cursor.execute(
         """
         SELECT si.qid, ci.component
@@ -85,3 +92,32 @@ def get_cran_items_having_doc_pdf() -> List[Any]:
     conn.close()
 
     return components
+
+
+def convert_worker_plan_to_list(plan_content: str) -> List[Any]:
+    """
+    Convert a worker plan JSON string into a list of (qid, component) tuples.
+
+    Args:
+        plan_content: Raw JSON string of the plan file.
+
+    Returns:
+        list[tuple[str, str]]: Entries extracted from the plan.
+    """
+    logger = get_logger_safe()
+    try:
+        payload = json.loads(plan_content)
+    except json.JSONDecodeError as exc:
+        logger.error("Failed to parse plan JSON: %s", exc)
+        return []
+
+    entries = payload.get("entries", [])
+    results: List[Any] = []
+    for entry in entries:
+        qid = entry.get("qid")
+        component = entry.get("component")
+        if qid and component:
+            results.append((qid, component))
+        else:
+            logger.warning("Skipping plan entry missing qid/component: %s", entry)
+    return results

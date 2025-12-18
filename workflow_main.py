@@ -9,7 +9,7 @@ from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
     setup_prefect_logging
 from helper.constants import DOCUMENT_TYPE_CRAN
 from helper.logger import get_logger_safe
-from helper.planner_tools import get_plan_from_lakefs, get_cran_items_having_doc_pdf
+from helper.planner_tools import get_plan_from_lakefs, get_cran_items_having_doc_pdf, convert_worker_plan_to_list
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task, get_connection
 from tasks.state_push import snapshot_table_counts
@@ -64,7 +64,7 @@ def start_update_embedding_workflow(
         if not worker_plan:
             logger.error(f"Worker plan {worker_plan_name} not found. Exiting.")
             SystemExit(1)
-        cran_items_having_doc_pdf = convert_worker_plan_to_list( worker_plan )
+        cran_items_having_doc_pdf = convert_worker_plan_to_list(worker_plan)
 
     # Initialize "normal" behaviour, based on lakeFS state database
     if EXEC_MODE == EXEC_MODE_USE_STATEDB:
