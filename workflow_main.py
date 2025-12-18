@@ -9,7 +9,7 @@ from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
     setup_prefect_logging
 from helper.constants import DOCUMENT_TYPE_CRAN
 from helper.logger import get_logger_safe
-from helper.planner_tools import plan_exists_on_lakefs
+from helper.planner_tools import get_plan_from_lakefs
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
 from tasks.state_push import snapshot_table_counts
@@ -53,7 +53,8 @@ def start_update_embedding_workflow(
     # A plan contains the files that should be embedded without the need
     # to use the state database - this allows true parallel execution.
     if worker_plan_name is not None:
-        if not plan_exists_on_lakefs(worker_plan_name):
+        worker_plan = get_plan_from_lakefs(worker_plan_name)
+        if not worker_plan:
             logger.error(f"Worker plan {worker_plan_name} not found. Exiting.")
             SystemExit(1)
 
@@ -67,6 +68,7 @@ def start_update_embedding_workflow(
         update_software_item_index_from_mardi()
         update_file_index_from_lakefs()
 
+    # Start actual workflow tasks
     for iteration in range(update_embeddings_loop_iterations):
 
         update_embeddings(
