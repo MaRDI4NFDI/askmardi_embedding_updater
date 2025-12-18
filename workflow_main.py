@@ -64,6 +64,7 @@ def start_update_embedding_workflow(
         if not worker_plan:
             logger.error(f"Worker plan {worker_plan_name} not found. Exiting.")
             SystemExit(1)
+        cran_items_having_doc_pdf = convert_worker_plan_to_list( worker_plan )
 
     # Initialize "normal" behaviour, based on lakeFS state database
     if EXEC_MODE == EXEC_MODE_USE_STATEDB:
@@ -89,7 +90,6 @@ def start_update_embedding_workflow(
             timeout_seconds=timeout_seconds,
             max_pages=max_pages,
             cran_items_having_doc_pdf=cran_items_having_doc_pdf,
-            worker_plan=worker_plan
         )
 
         # Only push new state db if in this exec mode

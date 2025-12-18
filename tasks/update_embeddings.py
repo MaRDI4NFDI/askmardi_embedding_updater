@@ -53,9 +53,8 @@ def update_embeddings(
     document_type: str = DOCUMENT_TYPE_OTHER,
     timeout_seconds: int | None = None,
     max_pages: int | None = None,
-    cran_items_having_doc_pdf: List[Any] | None = None,
-    worker_plan: str | None = None,
-) -> int:
+    cran_items_having_doc_pdf: List[Any] = None,
+) -> int | None:
     """
     MAIN ENTRY POINT:
       * Do configuration
@@ -73,8 +72,8 @@ def update_embeddings(
     """
     logger = get_logger_safe()
 
-    # Check whether any of the plans is given
-    if cran_items_having_doc_pdf is None and worker_plan is None:
+    # Check whether the item list to process is given
+    if cran_items_having_doc_pdf is None:
         logger.error( "No items to process given." )
         return None
 
