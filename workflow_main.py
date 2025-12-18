@@ -80,6 +80,10 @@ def start_update_embedding_workflow(
 
         # Get items that exist in KG and have a documentation pdf in lakefs
         cran_items_having_doc_pdf = get_cran_items_having_doc_pdf()
+        total_components = len(cran_items_having_doc_pdf)
+        logger.info(
+            f"Found {total_components:,} component records; {total_components:,} pending embeddings"
+        )
 
     # Start actual workflow tasks
     for iteration in range(update_embeddings_loop_iterations):

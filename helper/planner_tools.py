@@ -4,7 +4,7 @@ Utilities for plan-based workflow execution.
 
 import logging
 from pathlib import Path
-from typing import List, Any
+from typing import List, Any, Tuple
 import json
 
 from helper import config as config_helper
@@ -58,40 +58,28 @@ def get_cran_items_having_doc_pdf() -> List[Any]:
         list[tuple[str, str]]: Tuples of QID and component path for CRAN docs
         that are present in LakeFS and referenced in the KG.
     """
-    logger = get_logger_safe()
-
-    logger.info("Updating embeddings_index from component_index")
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
         """
-        SELECT si.qid, ci.component
-        FROM software_index si
-                 JOIN component_index ci ON ci.qid = si.qid
+        SELECT ci.qid, ci.component
+        FROM component_index ci
+        JOIN software_index si ON si.qid = ci.qid
+        LEFT JOIN embeddings_index ei
+            ON ei.qid = ci.qid AND ei.component = ci.component
+        WHERE ei.qid IS NULL
         """
     )
-    components: List[Any] = cursor.fetchall()
-    total_components = len(components)
-
-    cursor.execute(
-        "SELECT COUNT(*) FROM embeddings_index"
-    )
-    already_embedded = cursor.fetchone()[0]
-    remaining = max(total_components - already_embedded, 0)
-
-    logger.info(
-        f"Found {total_components:,} component records; {remaining:,} pending embeddings"
-    )
-
-    if not components:
-        conn.close()
-        logger.info("No components to process; embeddings_index unchanged.")
-        return 0
+    components_to_process: List[Tuple[str, str]] = cursor.fetchall()
 
     conn.close()
 
-    return components
+    if not components_to_process:
+        logger.info("No new PDFs require embedding; skipping indexing step.")
+        return 0
+
+    return components_to_process
 
 
 def convert_worker_plan_to_list(plan_content: str) -> List[Any]:

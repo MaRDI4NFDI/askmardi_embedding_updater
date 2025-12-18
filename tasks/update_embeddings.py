@@ -49,7 +49,6 @@ update_embeddings   [Prefect task, entry point]
 
 @task(name="update_embeddings")
 def update_embeddings(
-    max_number_of_pdfs: int | None = None,
     document_type: str = DOCUMENT_TYPE_OTHER,
     timeout_seconds: int | None = None,
     max_pages: int | None = None,
@@ -62,7 +61,6 @@ def update_embeddings(
       * Call: embed_and_upload_all_PDFs()
 
     Args:
-        max_number_of_pdfs: Optional cap on documents to embed during this run.
         document_type: Label for the document type to store in metadata.
         timeout_seconds: When the chunking/embedding of a PDF should fail due to timeout.
         max_pages: Maximum number of pages a PDF to embed can have, before skipping it.
@@ -109,13 +107,13 @@ def update_embeddings(
         f"{current_points:,}",
     )
 
-    logger.info( f"Starting downloading & embedding of {max_number_of_pdfs} PDFs of type {document_type}." )
+    count = len(cran_items_having_doc_pdf)
+    logger.info( f"Starting downloading & embedding of {count} PDFs of type {document_type}." )
 
     # Call to main embedding logic
     processed = embed_and_upload_all_PDFs(
         components=cran_items_having_doc_pdf,
         qdrant_manager=qdrant_manager,
-        max_number_of_pdfs=max_number_of_pdfs,
         document_type=document_type,
         embedder=embedder,
         timeout_seconds=timeout_seconds,
@@ -384,7 +382,6 @@ def download_and_embed_and_upload_one_PDF(
 def embed_and_upload_all_PDFs(
     components: List[Tuple[str, str]],
     qdrant_manager: QdrantManager | None = None,
-    max_number_of_pdfs: int | None = None,
     document_type: str = DOCUMENT_TYPE_OTHER,
     embedder: EmbedderTools | None = None,
     timeout_seconds: int | None = None,
@@ -397,7 +394,6 @@ def embed_and_upload_all_PDFs(
     Args:
         components: Iterable of (qid, component) rows from the DB.
         qdrant_manager: Qdrant client wrapper to persist embeddings. If None, a new instance is created from config.
-        max_number_of_pdfs: Max number of documents to process
         document_type: Label for the document type to store in metadata.
         embedder: Optional shared EmbedderTools instance; if None, a new one is created.
         timeout_seconds: When the chunking/embedding of a PDF should fail due to timeout.
