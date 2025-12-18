@@ -33,5 +33,8 @@ if __name__ == "__main__":
         parameters={
             "update_embeddings_loop_iterations": 1,
             "update_embeddings_embeddings_per_loop": 50,
+            "timeout_seconds": 100,
+            "max_pages": 100,
+            "use_plan": None,
         },
     )
