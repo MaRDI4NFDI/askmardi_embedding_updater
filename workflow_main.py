@@ -9,6 +9,7 @@ from helper.config import CONFIG_PATH, check_for_config, get_local_state_db_path
     setup_prefect_logging
 from helper.constants import DOCUMENT_TYPE_CRAN
 from helper.logger import get_logger_safe
+from helper.planner_tools import ensure_plan_exists
 from tasks.state_pull import pull_state_db_from_lakefs
 from tasks.init_db_task import init_db_task
 from tasks.state_push import snapshot_table_counts
@@ -26,9 +27,19 @@ def start_update_embedding_workflow(
         update_embeddings_embeddings_per_loop: int = 10,
         timeout_seconds: int = 100,
         max_pages: int = 100,
+        use_plan: str | None = None,
 ):
     """
     Orchestrate the end-to-end software documentation embedding sync flow.
+
+    Args:
+        update_embeddings_loop_iterations: Number of iterations to run the embedding loop.
+        update_embeddings_embeddings_per_loop: Number of PDFs processed per iteration.
+        timeout_seconds: Chunking/embedding timeout per PDF.
+        max_pages: Maximum pages allowed per PDF before skipping.
+        use_plan: Optional plan filename (e.g., "plan_localworker_01") looked up under
+            the LakeFS planned/ prefix. If provided and not found, the workflow exits
+            with an error.
     """
     logger = get_logger_safe()
 
@@ -42,6 +53,10 @@ def start_update_embedding_workflow(
     pulled = pull_state_db_from_lakefs()
     if not pulled:
         init_db_task()
+
+    if use_plan is not None:
+        ensure_plan_exists(use_plan, logger)
+
     baseline_counts = snapshot_table_counts()
     update_software_item_index_from_mardi()
     update_file_index_from_lakefs()
@@ -87,6 +102,7 @@ if __name__ == "__main__":
         start_update_embedding_workflow()
     else:
         raise SystemExit(1)
+
 
 
 # https://github.com/shanojpillai/qdrant-rag-pro
